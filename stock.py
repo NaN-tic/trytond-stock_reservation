@@ -1,0 +1,1213 @@
+# The COPYRIGHT file at the top level of this repository contains the full
+# copyright notices and license terms.
+from datetime import datetime
+from sql import Literal, Cast
+from sql.operators import Concat
+from sql.conditionals import Case
+
+from trytond.model import Workflow, ModelSQL, ModelView, fields
+from trytond.pyson import Eval, If, In
+from trytond.pool import Pool, PoolMeta
+from trytond.transaction import Transaction
+from trytond.wizard import Wizard, StateView, StateAction, StateTransition, \
+    Button
+from trytond.tools import reduce_ids
+from trytond.rpc import RPC
+
+
+__all__ = ['Reservation', 'WaitReservation', 'WaitReservationStart',
+    'CreateReservations', 'CreateReservationsStart', 'Move', 'PurchaseLine',
+    'Production', 'Sale', 'ShipmentOut']
+__metaclass__ = PoolMeta
+
+STATES = {
+    'readonly': Eval('state') != 'draft',
+}
+DEPENDS = ['state']
+
+
+class Reservation(Workflow, ModelSQL, ModelView):
+    "Stock Reservation"
+    __name__ = 'stock.reservation'
+
+    company = fields.Many2One('company.company', 'Company', required=True,
+        states=STATES, depends=DEPENDS,
+        domain=[
+            ('id', If(In('company', Eval('context', {})), '=', '!='),
+                Eval('context', {}).get('company', -1)),
+            ])
+    product = fields.Many2One("product.product", "Product", required=True,
+        select=True, states=STATES,
+        on_change=['product', 'uom'],
+        domain=[('type', '!=', 'service')],
+        depends=DEPENDS)
+    uom = fields.Many2One("product.uom", "Uom", required=True, states=STATES,
+        depends=DEPENDS)
+    unit_digits = fields.Function(fields.Integer('Unit Digits',
+        on_change_with=['uom']), 'on_change_with_unit_digits')
+    quantity = fields.Float("Quantity", required=True,
+        digits=(16, Eval('unit_digits', 2)), states=STATES,
+        depends=['state', 'unit_digits'])
+    internal_quantity = fields.Function(fields.Float('Internal Quantity',
+            on_change_with=['product', 'quantity', 'uom'],
+            digits=(16, Eval('unit_digits', 2)), depends=['unit_digits'],
+            help='Quantity in product default UOM'),
+        'on_change_with_internal_quantity')
+    source_document = fields.Reference('Source',
+        selection='get_source_document', states=STATES, depends=DEPENDS)
+    location = fields.Many2One('stock.location', 'Location', select=True,
+        required=True, domain=[('type', 'in', ['storage', 'production'])],
+        states=STATES, depends=DEPENDS)
+    destination = fields.Many2One('stock.move', 'Destination Move',
+        select=True,
+        states={
+            'readonly': (Eval('state') != 'draft') | ~Eval('location'),
+            'required': Eval('state') == 'done',
+            },
+        depends=['state', 'location', 'product', 'source_to_location'],
+        domain=[
+            (If(Eval('state') == 'draft', ('state', '=', 'draft'), ())),
+            ('product', '=', Eval('product', -1)),
+            ('from_location', '=', Eval('location', -1)),
+            ])
+    destination_document = fields.Function(fields.Reference('Destination',
+        selection='get_destination_document_selection'),
+        'get_destination_document', searcher='search_destination_document')
+    destination_planned_date = fields.Function(fields.Date('Planned Date',
+            on_change_with=['destination']),
+        'get_move_field')
+    destination_from_location = fields.Function(fields.Many2One(
+            'stock.location', 'From Location', on_change_with=['destination']),
+        'get_move_field')
+    destination_to_location = fields.Function(fields.Many2One(
+            'stock.location', 'To Location', on_change_with=['destination']),
+        'get_move_field')
+    get_from_stock = fields.Boolean('Get from stock')
+    source = fields.Many2One('stock.move', 'Source Move', select=True,
+        states={
+            'readonly': (Eval('state') != 'draft') | ~Eval('location'),
+            'required': ((Eval('state') == 'done') &
+                ~Eval('get_from_stock', False)),
+            'invisible': Eval('get_from_stock', False),
+            },
+        depends=['state', 'location', 'product', 'get_from_stock'],
+        domain=[
+            (If(Eval('state') == 'draft', ('state', '=', 'draft'), ())),
+            ('product', '=', Eval('product', -1)),
+            ('to_location', '=', Eval('location', -1)),
+            ])
+    source_planned_date = fields.Function(fields.Date('Planned Date',
+            states={
+                'invisible': Eval('get_from_stock', False),
+                },
+            depends=['get_from_stock'],
+            on_change_with=['source', 'source_document']),
+        'on_change_with_source_planned_date')
+    source_from_location = fields.Function(fields.Many2One('stock.location',
+            'From Location',
+            states={
+                'invisible': Eval('get_from_stock', False),
+                },
+            depends=['get_from_stock'],
+            on_change_with=['source']), 'get_move_field')
+    source_to_location = fields.Function(fields.Many2One('stock.location',
+            'To Location',
+            states={
+                'invisible': Eval('get_from_stock', False),
+                },
+            depends=['get_from_stock'],
+            on_change_with=['source']), 'get_move_field')
+    failed_reason = fields.Selection([
+            (None, ''),
+            ('source_canceled', 'Source Move was canceled'),
+            ('destination_canceled', 'Destination Move was canceled'),
+            ], 'Failing Reason', readonly=True)
+    failed_date = fields.DateTime('Failed Date', readonly=True)
+    state = fields.Selection([
+            ('draft', 'Draft'),
+            ('waiting', 'Waiting'),
+            ('failed', 'Failed'),
+            ('done', 'Done'),
+            ], 'State', select=True, readonly=True)
+    reserve_type = fields.Function(fields.Selection([
+                ('exceeding', 'Exceeding'),
+                ('pending', 'To be Assigned'),
+                ('on_time', 'Assigned On Time'),
+                ('delayed', 'Assigned Delayed'),
+                ('in_stock', 'In Stock'),
+                ], 'Reserve Type'), 'get_reserve_type',
+        searcher='search_reserve_type')
+    day_difference = fields.Function(fields.Integer('Day Difference'),
+        'get_day_difference', searcher='search_day_difference')
+    supplier_shipments = fields.Function(fields.One2Many('stock.shipment.in',
+            None, 'Supplier Shipments'), 'get_supplier_shipments')
+    supplier_return_shipments = fields.Function(fields.One2Many(
+            'stock.shipment.in.return', None, 'Supplier Return Shipments'),
+        'get_supplier_return_shipments')
+    customer_shipments = fields.Function(fields.One2Many('stock.shipment.out',
+            None, 'Customer Shipments'), 'get_customer_shipments')
+    customer_return_shipments = fields.Function(fields.One2Many(
+            'stock.shipment.out.return', None, 'Customer Return Shipments'),
+        'get_customer_return_shipments')
+    internal_shipments = fields.Function(fields.One2Many(
+            'stock.shipment.internal', None, 'Internal Shipments'),
+        'get_internal_shipments')
+    productions = fields.Function(fields.One2Many('production',
+            None, 'Productions'), 'get_productions')
+
+    @classmethod
+    def __setup__(cls):
+        super(Reservation, cls).__setup__()
+        cls._error_messages.update({
+            'delete_draft': ('You can not delete stock reservation "%s" '
+                    'because it is not in draft state.'),
+            'reservation_overpass_move': ('Reservation "%s" overpasses Move '
+                    '"%s" quantity.'),
+                })
+        cls._transitions |= set((
+                ('draft', 'waiting'),
+                ('waiting', 'draft'),
+                ('waiting', 'failed'),
+                ('waiting', 'done'),
+                ))
+        cls._buttons.update({
+                'draft': {
+                    'invisible': ~Eval('state').in_(['waiting']),
+                    },
+                'wait': {
+                    'invisible': ~Eval('state').in_(['draft']),
+                    },
+                'fail': {
+                    'invisible': ~Eval('state').in_(['waiting']),
+                    },
+                'do': {
+                    'invisible': ~Eval('state').in_(['waiting']),
+                    },
+                })
+        cls.__rpc__.update({
+                'get_destination_document_selection': RPC(),
+                })
+
+    @staticmethod
+    def default_state():
+        return 'draft'
+
+    @staticmethod
+    def default_company():
+        return Transaction().context.get('company')
+
+    @staticmethod
+    def default_unit_digits():
+        return 2
+
+    def on_change_with_unit_digits(self, name=None):
+        if self.uom:
+            return self.uom.digits
+        return 2
+
+    def on_change_with_internal_quantity(self, name=None):
+        pool = Pool()
+        Uom = pool.get('product.uom')
+        if self.uom and self.product and self.quantity:
+            return Uom.compute_qty(self.uom, self.quantity,
+                self.product.default_uom)
+
+    def get_move_field(self, name):
+        move_name, field_name = name.split('_', 1)
+        move = getattr(self, move_name)
+        if not move:
+            return
+        res = getattr(move, field_name)
+        if hasattr(res, 'id'):
+            return res.id
+        return res
+
+    def on_change_with_destination_planned_date(self, name=None):
+        return self.get_move_field('destination_planned_date')
+
+    def on_change_with_destination_to_location(self, name=None):
+        return self.get_move_field('destination_to_location')
+
+    def on_change_with_destination_from_location(self, name=None):
+        return self.get_move_field('destination_from_location')
+
+    def on_change_with_source_planned_date(self, name=None):
+        pool = Pool()
+        PurchaseRequest = pool.get('purchase.request')
+        PurchaseLine = pool.get('purchase.line')
+        if self.source_document:
+            if isinstance(self.source_document, PurchaseLine):
+                return self.source_document.delivery_date
+            elif isinstance(self.source_document, PurchaseRequest):
+                return self.source_document.supply_date
+        return self.get_move_field('source_planned_date')
+
+    def on_change_with_source_to_location(self, name=None):
+        return self.get_move_field('source_to_location')
+
+    def on_change_with_source_from_location(self, name=None):
+        return self.get_move_field('source_from_location')
+
+    def on_change_product(self):
+        res = {}
+        if self.product:
+            res['uom'] = self.product.default_uom.id
+            res['uom.rec_name'] = self.product.default_uom.rec_name
+            res['unit_digits'] = self.product.default_uom.digits
+        return res
+
+    @classmethod
+    def _get_source_document(cls):
+        'Return list of Model names for source_document Reference'
+        return [
+            'stock.shipment.in',
+            'stock.shipment.out.return',
+            'stock.shipment.internal',
+            'production',
+            'purchase.request',
+            'purchase.line',
+            ]
+
+    @classmethod
+    def get_source_document(cls):
+        pool = Pool()
+        Model = pool.get('ir.model')
+        models = cls._get_source_document()
+        models = Model.search([
+                ('model', 'in', models),
+                ])
+        return [('', '')] + [(m.model, m.name) for m in models]
+
+    @classmethod
+    def _get_destination_document_models(cls):
+        'Return list of Model names for destination_document Reference'
+        return [
+            'stock.shipment.in',
+            'stock.shipment.out',
+            'stock.shipment.out.return',
+            'stock.shipment.in.return',
+            'stock.shipment.internal',
+            'production',
+            ]
+
+    @classmethod
+    def get_destination_document_selection(cls):
+        pool = Pool()
+        Model = pool.get('ir.model')
+        models = cls._get_destination_document_models()
+        models = Model.search([
+                ('model', 'in', models),
+                ])
+        return [('', '')] + [(m.model, m.name) for m in models]
+
+    def get_destination_document(self, name):
+        if not self.destination:
+            return ''
+        if self.destination.production_input:
+            return str(self.destination.production_input)
+        if self.destination.production_output:
+            return str(self.destination.production_output)
+        if self.destination.shipment:
+            return str(self.destination.shipment)
+        return ''
+
+    def get_shipments(model_name):
+        "Computes the returns or shipments"
+        def method(self, name):
+            Model = Pool().get(model_name)
+            shipments = set()
+            for move in (self.source, self.destination):
+                if not move:
+                    continue
+                if isinstance(move.shipment, Model):
+                    shipments.add(move.shipment.id)
+            return list(shipments)
+        return method
+
+    get_supplier_shipments = get_shipments('stock.shipment.in')
+    get_supplier_return_shipments = get_shipments('stock.shipment.in.return')
+    get_customer_shipments = get_shipments('stock.shipment.out')
+    get_customer_return_shipments = get_shipments('stock.shipment.out.return')
+    get_internal_shipments = get_shipments('stock.shipment.internal')
+
+    def get_productions(self, name):
+        productions = set()
+        for move in self.source, self.destination:
+            if not move:
+                continue
+            if move.production_input:
+                productions.add(move.production_input.id)
+            if move.production_output:
+                productions.add(move.production_output.id)
+        return list(productions)
+
+    def get_reserve_type(self, name):
+        if self.get_from_stock:
+            return 'in_stock'
+        if (self.source or self.source_document) and not self.destination:
+            return 'exceeding'
+        if self.destination and not (self.source or self.source_document):
+            return 'pending'
+        if self.day_difference and self.day_difference < 0:
+            return 'delayed'
+        return 'on_time'
+
+    def get_day_difference(self, name):
+        name = 'planned_date'
+        if self.state == 'done':
+            name = 'effective_date'
+        if self.source and self.destination:
+            source = getattr(self.source, name)
+            destination = getattr(self.destination, name)
+            if source and destination:
+                return (destination - source).days
+
+    @classmethod
+    def search_reserve_type(cls, name, clause):
+        reservation = cls.__table__()
+        Operator = fields.SQL_OPERATORS[clause[1]]
+
+        day_difference = cls.search_day_difference('day_difference',
+            ('day_difference', '<', 0))
+        _, _, date_query = day_difference[0]
+
+        query = reservation.select(reservation.id,
+            where=(Operator(Case(
+                        (reservation.get_from_stock, Literal('in_stock')),
+                        ((((reservation.source != None) |
+                                    (reservation.source_document != None))
+                                & (reservation.destination == None)),
+                            Literal('exceeding')),
+                        (((reservation.source == None) &
+                                    (reservation.source_document == None) &
+                                (reservation.destination != None)),
+                            Literal('pending')),
+                        (reservation.id.in_(date_query), Literal('delayed')),
+                        else_=Literal('on_time')), clause[2])))
+
+        return [('id', 'in', query)]
+
+    @classmethod
+    def search_destination_document(cls, name, clause):
+        pool = Pool()
+        Move = pool.get('stock.move')
+        destination = Move.__table__()
+        reservation = cls.__table__()
+
+        Operator = fields.SQL_OPERATORS[clause[1]]
+        Char = cls.state.sql_type().base
+
+        query = reservation.join(destination, condition=(
+                destination.id == reservation.destination)).select(
+                    reservation.id,
+            where=(Operator(Case(
+                        ((destination.shipment != None),
+                            destination.shipment),
+                        ((destination.production_input != None) &
+                            Concat(Literal('production,'), Cast(
+                                            destination.production_input,
+                                            Char))),
+                        ((destination.production_output != None) &
+                            Concat(Literal('production,'), Cast(
+                                            destination.production_output,
+                                            Char))),
+                        ), clause[2])))
+
+        return [('id', 'in', query)]
+
+    @classmethod
+    def search_day_difference(cls, name, clause):
+        pool = Pool()
+        Move = pool.get('stock.move')
+        reservation = cls.__table__()
+        source = Move.__table__()
+        destination = Move.__table__()
+        Operator = fields.SQL_OPERATORS[clause[1]]
+        query = reservation.join(source, condition=(
+                reservation.source == source.id)).join(destination, condition=(
+                        reservation.destination == destination.id)).select(
+                            reservation.id, where=(Operator((
+                                    destination.planned_date -
+                                        source.planned_date), clause[2])
+                                    ))
+        return [('id', 'in', query)]
+
+    @classmethod
+    def delete(cls, reservations):
+        for reserve in reservations:
+            if reserve.state != 'draft':
+                cls.raise_user_error('delete_draft', (reserve.rec_name,))
+        super(Reservation, cls).delete(reservations)
+
+    @classmethod
+    @ModelView.button
+    @Workflow.transition('draft')
+    def draft(cls, reservations):
+        pool = Pool()
+        Move = pool.get('stock.move')
+
+        moves = ([r.source for r in reservations if r.source] +
+            [r.destination for r in reservations if r.destination])
+        with Transaction().set_context(stock_reservation=True):
+            Move.draft(moves)
+
+    @classmethod
+    @ModelView.button
+    @Workflow.transition('waiting')
+    def wait(cls, reservations):
+        pass
+        #TODO: Determine when to split moves
+#        for reservation in reservations:
+#            reservation.split_moves('waiting')
+
+    @classmethod
+    @ModelView.button
+    @Workflow.transition('failed')
+    def fail(cls, reservations):
+        pool = Pool()
+        Move = pool.get('stock.move')
+        moves = []
+        for reservation in reservations:
+            if reservation.source.state == 'assigned':
+                moves.append(reservation.source)
+            if reservation.destination.state == 'assigned':
+                moves.append(reservation.destination)
+        with Transaction().set_context(stock_reservation=True):
+            Move.draft(moves)
+
+    @classmethod
+    @ModelView.button
+    @Workflow.transition('done')
+    def do(cls, reservations):
+        pool = Pool()
+        Move = pool.get('stock.move')
+
+        to_assign = []
+        to_do = []
+        for reservation in reservations:
+            #TODO: Determine when to split moves
+#           reservation.split_moves('done')
+            if reservation.source.state == 'assigned':
+                to_do.append(reservation.source)
+            if reservation.destination.state == 'draft':
+                to_assign.append(reservation.destination)
+
+        cls.write(reservations, {'state': 'done'})
+        if to_assign:
+            Move.assign(to_assign)
+        if to_do:
+            Move.do(to_do)
+
+    def split_moves(self, next_state):
+        """
+        Splits the moves (by quantity) if needed.
+        Next stage is used to determine which move must be splited
+        """
+        assert next_state in ('waiting', 'done')
+        pool = Pool()
+        Move = pool.get('stock.move')
+        Uom = pool.get('product.uom')
+
+        move_name = 'source' if next_state == 'waiting' else 'destination'
+        move = getattr(self, move_name)
+        if not move:
+            return
+        #TODO: This should be moved to check_* method? Currently is not called
+        move_qty = Uom.compute_qty(move.uom, move.quantity, self.uom)
+        if move_qty < self.quantity:
+            self.raise_user_error('reservation_overpass_move', (self.rec_name,
+                move.rec_name))
+        if move_qty > self.quantity:
+            remaining_quantity = Uom.compute_qty(self.uom,
+                move_qty - self.quantity, move.uom)
+            new_move, = Move.copy([move], {'quantity': remaining_quantity})
+            move.quantity = self.quantity
+            move.uom = self.uom
+            move.save()
+            reservations = self.search([
+                    (move_name, '=', move),
+                    ('id', '!=', self.id),
+                    ])
+            if reservations:
+                self.write(reservations, {move_name: new_move})
+
+    @classmethod
+    def generate_reservations(cls, clean=True):
+        """
+        Compute all available reservations based on draft stock moves.
+
+        If clean is set, it will remove all previous reservations.
+        """
+        pool = Pool()
+        Date = pool.get('ir.date')
+        Location = pool.get('stock.location')
+        Product = pool.get('product.product')
+        PurchaseLine = pool.get('purchase.line')
+        PurchaseRequest = pool.get('purchase.request')
+        Uom = pool.get('product.uom')
+
+        if clean:
+            reservations = cls.search([
+                    ('state', '=', 'draft'),
+                    ])
+            cls.delete(reservations)
+
+        to_create = []
+        consumed_quantities = {}
+        for reservation in cls.search([
+                    ('state', 'not in', ['done', 'failed']),
+                    ]):
+            for name in ('source', 'destination'):
+                move = getattr(reservation, name, None)
+                if not move:
+                    continue
+                key = (name, move.id,)
+                if not key in consumed_quantities:
+                    consumed_quantities[key] = 0
+                #TODO: Currently not converting uom.
+                consumed_quantities[key] += move.internal_quantity
+            source_document = reservation.source_document
+            if source_document:
+                key = None
+                if isinstance(source_document, PurchaseLine):
+                    key = ('purchase_line', source_document.id,)
+                elif isinstance(source_document, PurchaseRequest):
+                    key = ('purchase_request', source_document.id,)
+                if key:
+                    if not key in consumed_quantities:
+                        consumed_quantities[key] = 0
+                    consumed_quantities[key] += reservation.internal_quantity
+
+        requests = cls.get_purchase_requests()
+        purchase_lines = cls.get_purchase_lines()
+
+        destination_moves = cls.get_destination_moves()
+
+        location_ids = [l.id for l in Location.search([
+                    ('type', '=', 'storage')])]
+        product_ids = list(set([m.product.id for m in destination_moves]))
+        with Transaction().set_context(stock_assign=True,
+                stock_date_end=Date.today()):
+            pbl = Product.products_by_location(location_ids, product_ids)
+
+        for destination in destination_moves:
+            quantity = destination.internal_quantity
+            reserved_quantity = consumed_quantities.get(('destination',
+                    destination.id,), 0.0)
+            quantity -= reserved_quantity
+
+            if quantity <= 0.0:
+                continue
+
+            # Create reservation from stock
+            key = (destination.from_location.id, destination.product.id,)
+            stock_quantity = min(pbl.get(key, 0.0),
+                destination.internal_quantity)
+            if stock_quantity > 0.0:
+                reservation = cls.get_reservation(None, destination,
+                    stock_quantity, destination.product.default_uom)
+                reservation.get_from_stock = True
+                pbl[key] -= stock_quantity
+                to_create.append(reservation._save_values)
+                quantity -= stock_quantity
+
+            if quantity <= 0.0:
+                continue
+
+            # Create reservation from other moves
+            for source in cls.get_source_moves(destination):
+                key = ('source', source.id,)
+                consumed_quantity = consumed_quantities.get(key, 0.0)
+                remaining_quantity = (source.internal_quantity -
+                    consumed_quantity)
+
+                if remaining_quantity <= 0.0:
+                    continue
+
+                reserve_quantity = min(quantity, remaining_quantity)
+
+                reservation = cls.get_reservation(source, destination,
+                    reserve_quantity, destination.product.default_uom)
+                consumed_quantities[key] = (consumed_quantity +
+                    reserve_quantity)
+                to_create.append(reservation._save_values)
+                quantity -= reserve_quantity
+                if quantity <= 0.0:
+                    break
+
+            if quantity <= 0.0:
+                continue
+
+            # Create reservation from purchase_lines
+            for purchase_line in purchase_lines:
+                if (purchase_line.product != destination.product or
+                        (purchase_line.purchase.warehouse.storage_location !=
+                            destination.from_location)):
+                    continue
+                key = ('purchase_line', purchase_line.id,)
+                consumed_quantity = consumed_quantities.get(key, 0.0)
+                internal_quantity = Uom.compute_qty(
+                    purchase_line.product.default_uom, purchase_line.quantity,
+                    purchase_line.unit)
+                remaining_quantity = internal_quantity - consumed_quantity
+
+                if remaining_quantity <= 0.0:
+                    continue
+
+                reserve_quantity = min(quantity, remaining_quantity)
+
+                reservation = cls.get_reservation(None, destination,
+                    reserve_quantity, destination.product.default_uom)
+                reservation.source_document = purchase_line
+                consumed_quantities[key] = (consumed_quantity +
+                    reserve_quantity)
+                to_create.append(reservation._save_values)
+                quantity -= reserve_quantity
+                if quantity <= 0.0:
+                    break
+
+            if quantity <= 0.0:
+                continue
+
+            # Create reservation from purchase_requests
+            for purchase_request in requests:
+                if (purchase_request.product != destination.product or
+                        (purchase_request.warehouse.storage_location !=
+                            destination.from_location)):
+                    continue
+                key = ('purchase_request', purchase_request.id,)
+                consumed_quantity = consumed_quantities.get(key, 0.0)
+                internal_quantity = Uom.compute_qty(
+                    purchase_request.product.default_uom,
+                    purchase_request.quantity, purchase_request.unit)
+                remaining_quantity = internal_quantity - consumed_quantity
+
+                if remaining_quantity <= 0.0:
+                    continue
+
+                reserve_quantity = min(quantity, remaining_quantity)
+
+                reservation = cls.get_reservation(None, destination,
+                    reserve_quantity, destination.product.default_uom)
+                reservation.source_document = purchase_request
+                consumed_quantities[key] = (consumed_quantity +
+                    reserve_quantity)
+                to_create.append(reservation._save_values)
+                quantity -= reserve_quantity
+                if quantity <= 0.0:
+                    break
+
+            if quantity <= 0.0:
+                continue
+
+            # Create reservation for remaining quantity in destination.
+            reservation = cls.get_reservation(None, destination,
+                quantity, destination.product.default_uom)
+            to_create.append(reservation._save_values)
+
+        # Create reservation for *remaining* quantities in source!!
+        # That is:
+        # * Source stock moves
+        for source in cls.get_source_moves():
+            key = ('source', source.id,)
+            consumed_quantity = consumed_quantities.get(key, 0.0)
+            remaining_quantity = (source.internal_quantity -
+                consumed_quantity)
+
+            if remaining_quantity <= 0.0:
+                continue
+
+            reservation = cls.get_reservation(source, None,
+                remaining_quantity, source.product.default_uom)
+            to_create.append(reservation._save_values)
+
+        # * Purchase lines
+        for purchase_line in purchase_lines:
+            key = ('purchase_line', purchase_line.id,)
+            consumed_quantity = consumed_quantities.get(key, 0.0)
+            internal_quantity = Uom.compute_qty(
+                purchase_line.product.default_uom, purchase_line.quantity,
+                purchase_line.unit)
+            remaining_quantity = internal_quantity - consumed_quantity
+
+            if remaining_quantity <= 0.0:
+                continue
+            reservation = cls(product=purchase_line.product,
+                quantity=remaining_quantity,
+                uom=purchase_line.unit,
+                location=purchase_line.purchase.warehouse.storage_location,
+                source_document=purchase_line)
+            to_create.append(reservation._save_values)
+
+        # * Purchase requests
+        for purchase_request in requests:
+            key = ('purchase_request', purchase_request.id,)
+            consumed_quantity = consumed_quantities.get(key, 0.0)
+            internal_quantity = Uom.compute_qty(
+                purchase_request.product.default_uom,
+                purchase_request.quantity, purchase_request.uom)
+            remaining_quantity = internal_quantity - consumed_quantity
+
+            if remaining_quantity <= 0.0:
+                continue
+
+            reservation = cls(product=purchase_request.product,
+                quantity=remaining_quantity,
+                uom=purchase_request.product.default_uom,
+                location=purchase_request.warehouse.storage_location,
+                source_document=purchase_request)
+            to_create.append(reservation._save_values)
+
+        if to_create:
+            return cls.create(to_create)
+        return []
+
+    @classmethod
+    def get_purchase_requests(cls):
+        """
+        Get all purchase requests elegible to stock reservations
+        """
+        pool = Pool()
+        Request = pool.get('purchase.request')
+        return Request.search([
+                ('purchase_line', '=', None),
+                ], order=[
+                ('purchase_date', 'ASC'),
+                ])
+
+    @classmethod
+    def get_purchase_lines(cls):
+        """
+        Get all purchase lines elegible to stock reservations
+        """
+        pool = Pool()
+        PurchaseLine = pool.get('purchase.line')
+        requests = PurchaseLine.search([
+                ('purchase.state', 'in', ['draft', 'quotation']),
+                ('product.type', '=', 'goods'),
+                ('product.consumable', '=', False),
+                ],
+            order=[
+                ('purchase_date', 'ASC'),
+                ])
+        pending = PurchaseLine.search([
+                ('purchase.state', '=', ['confirmed']),
+                ('product.type', '=', 'goods'),
+                ('product.consumable', '=', False),
+                ],
+            order=[
+                ('purchase_date', 'ASC'),
+                ])
+        for line in pending:
+            #TODO: Check if line is partialy delivered.
+            if any(move.state == 'draft'for move in line.moves):
+                requests.append(line)
+        return requests
+
+    @classmethod
+    def get_destination_moves(cls):
+        """
+        Returns possible destination moves to create stock reservations
+        """
+        pool = Pool()
+        Move = pool.get('stock.move')
+        return Move.search([
+                ('state', '=', 'draft'),
+                ('from_location.type', 'in', ['storage']),
+                ('to_location.type', 'in', ['storage', 'production']),
+                ], order=[
+                ('planned_date', 'ASC'),
+                ('internal_quantity', 'DESC'),
+                ])
+
+    @classmethod
+    def get_source_moves(cls, move=None):
+        """
+        Returns matchin source moves for a given destination move
+        If move is None returns all elegible source moves
+        """
+        pool = Pool()
+        Move = pool.get('stock.move')
+        domain = [
+            ('state', '=', 'draft'),
+            ]
+        if move:
+            domain.extend([
+                    ('product', '=', move.product),
+                    ('to_location', '=', move.from_location),
+                    ])
+        else:
+            domain.extend([
+                    ('to_location.type', 'in', ['storage', 'production']),
+                    ('shipment', 'not like', 'stock.shipment.out,%'),
+                    ('shipment', 'not like', 'stock.shipment.in.return,%'),
+                    ])
+        return Move.search(domain, order=[
+                ('planned_date', 'ASC'),
+                ('internal_quantity', 'DESC'),
+                ])
+
+    @classmethod
+    def get_reservation(cls, source, destination, quantity=None,
+            uom=None):
+        """
+        Return the reservation to create given an source and destination move.
+        The quantity param limits the reservation quantity
+        The uom param is used to convert uom to destination uoms
+        """
+        pool = Pool()
+        Uom = pool.get('product.uom')
+        move_uom = destination.uom if destination else source.uom
+        if not quantity:
+            quantity = destination.quantity
+        if uom:
+            quantity = Uom.compute_qty(uom, quantity, move_uom)
+
+        if destination:
+            location = destination.from_location
+            product = destination.product
+        else:
+            location = source.to_location
+            product = source.product
+
+        source_document = None
+        if source:
+            if source.shipment:
+                source_document = source.shipment
+            elif source.production_output:
+                source_document = source.production_output
+            elif source.origin:
+                source_document = source.origin
+        return cls(source_document=source_document, source=source,
+            destination=destination,
+            product=product, quantity=quantity,
+            uom=move_uom, location=location)
+
+
+class WaitReservationStart(ModelView):
+    'Wait Reservations'
+    __name__ = 'stock.wait_reservation.start'
+
+
+class WaitReservation(Wizard):
+    'Return Sale'
+    __name__ = 'stock.wait_reservation'
+    start = StateView('stock.wait_reservation.start',
+        'stock_reservation.wait_reservation_start_view_form', [
+            Button('Cancel', 'end', 'tryton-cancel'),
+            Button('Wait', 'wait_', 'tryton-ok', default=True),
+            ])
+    wait_ = StateTransition()
+
+    def transition_wait_(self):
+        Reservation = Pool().get('stock.reservation')
+
+        reservations = Reservation.browse(Transaction().context['active_ids'])
+        Reservation.wait(reservations)
+
+        return 'end'
+
+
+class CreateReservationsStart(ModelView):
+    'Create Reservations'
+    __name__ = 'stock.create_reservations.start'
+
+    wait = fields.Boolean('Mark new reservations as waiting', help='If marked '
+        'the new reservations will be created in waiting state.')
+
+    @staticmethod
+    def default_wait():
+        return False
+
+
+class CreateReservations(Wizard):
+    'Create Reservations'
+    __name__ = 'stock.create_reservations'
+    start = StateView('stock.create_reservations.start',
+        'stock_reservation.create_reservations_start_view_form', [
+            Button('Cancel', 'end', 'tryton-cancel'),
+            Button('Create', 'create_', 'tryton-ok', default=True),
+            ])
+    create_ = StateAction('stock_reservation.act_stock_reservation')
+
+    def do_create_(self, action):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        reservations = Reservation.generate_reservations()
+        if self.start.wait:
+            Reservation.wait(reservations)
+        return action, {}
+
+    def transition_create_(self):
+        return 'end'
+
+
+class Move:
+    __name__ = 'stock.move'
+
+    reserves_source = fields.One2Many('stock.reservation', 'source',
+        'Source Reserves')
+    reserves_destination = fields.One2Many('stock.reservation', 'destination',
+        'Destination Reserves')
+    reserved = fields.Function(fields.Boolean('Reserved'), 'get_reserved')
+    #TODO: Aquest camp es cert si el moviment esta en alguna reserva, pero el
+    # proces de reserves crea reserves per tots els moviments.
+    # Potser s'ha de validar que la reserva estigui en waiting (o alguna altra
+    # condicio).
+    reserved_quantity = fields.Function(fields.Float('Reserved Quantity',
+            digits=(16, Eval('unit_digits', 2)), depends=['unit_digits']),
+        'get_reserved_quantity')
+    future_reserved_quantity = fields.Function(fields.Float(
+            'Future Reserved Quantity', digits=(16, Eval('unit_digits', 2)),
+            depends=['unit_digits']), 'get_future_reserved_quantity')
+    incompatible_reserved_quantity = fields.Function(fields.Float(
+            'Incompatible Reserved Quantity', digits=(16,
+                Eval('unit_digits', 2)), depends=['unit_digits']),
+        'get_incompatible_reserved_quantity')
+
+    @classmethod
+    def get_reserved(cls, moves, name):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        reservation = Reservation.__table__()
+        cursor = Transaction().cursor
+        in_max = cursor.IN_MAX
+
+        reserved = dict.fromkeys([m.id for m in moves], False)
+        for i in range(0, len(moves), in_max):
+            sub_ids = [i.id for i in moves[i:i + in_max]]
+            red_sql = reduce_ids(reservation.source, sub_ids)
+            cursor.execute(*reservation.select(reservation.source,
+                    Literal(True),
+                    where=red_sql,
+                    group_by=reservation.source))
+            reserved.update(cursor.fetchall())
+            red_sql = reduce_ids(reservation.destination, sub_ids)
+            cursor.execute(*reservation.select(reservation.destination,
+                    Literal(True),
+                    where=red_sql,
+                    group_by=reservation.destination))
+            reserved.update(cursor.fetchall())
+        return reserved
+
+    def get_reserved_quantity(self, name):
+        quantity = 0.0
+        for reservation in self.reserves_destination:
+            if (reservation.state in ('confirmed', 'waiting')
+                    and reservation.reservation_type == 'En Estoc'):
+                quantity += reservation.internal_quantity
+        return quantity
+
+    def get_future_reserved_quantity(self, name):
+        quantity = 0.0
+        for reservation in self.reserves_destination:
+            if (reservation.state in ('confirmed', 'waiting')
+                    and reservation.reservation_type in (
+                        'Assignat fora de termini', 'Assignat a temps')):
+                quantity += reservation.internal_quantity
+        return quantity
+
+    def get_incompatible_reserved_quantity(self, name):
+        quantity = 0.0
+        reservations = Reservation.search([
+                ('location', '=', self.from_location.id),
+                ('product', '=', self.product.id),
+                ('destination', '=', self.id),
+                ('state', 'in', ('waiting', 'confirmed')),
+                ])
+        for reservation in reservations:
+            quantity += reservation.internal_quantity
+        return quantity
+
+    def pick_product(self, location_quantities):
+        """
+        Implementation without partial stock assignment
+        """
+        res = super(Move, self).pick_product(location_quantities)
+        if not res:
+            return res
+        if self.reserved_quantity >= self.internal_quantity:
+            return res
+        if self.future_reserved_quantity:
+            return []
+        remaining = self.internal_quantity - self.reserved_quantity
+        available = sum([x[1] for x in location_quantities])
+        if available - self.incompatible_reserved_quantity < remaining:
+            return []
+        return res
+
+    @classmethod
+    def assign(cls, moves):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        super(Move, cls).assign(moves)
+
+        move_ids = [m.id for m in moves]
+        reservations = Reservation.search([
+                ('state', '=', 'waiting'),
+                ('destination', 'in', move_ids),
+                ])
+        if reservations:
+            Reservation.do(reservations)
+        reservations = Reservation.search([
+                ('state', '=', 'draft'),
+                ('destination', 'in', move_ids),
+                ])
+        if reservations:
+            Reservation.delete(reservations)
+
+    @classmethod
+    def do(cls, moves):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        super(Move, cls).do(moves)
+
+        move_ids = [m.id for m in moves]
+        reservations = Reservation.search([
+                ('state', '=', 'waiting'),
+                ('source', 'in', move_ids),
+                ])
+        if reservations:
+            Reservation.do(reservations)
+        reservations = Reservation.search([
+                ('state', '=', 'draft'),
+                ('source', 'in', move_ids),
+                ])
+        if reservations:
+            Reservation.delete(reservations)
+
+    @classmethod
+    def cancel(cls, moves):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        super(Move, cls).cancel(moves)
+
+        source_reservations = Reservation.search([
+                ('state', '=', 'waiting'),
+                ('source', 'in', [m.id for m in moves]),
+                ])
+        if source_reservations:
+            Reservation.write(source_reservations, {
+                    'failed_reason': 'source_canceled',
+                    'failed_date': datetime.now(),
+                    })
+        destination_reservations = Reservation.search([
+                ('state', '=', 'waiting'),
+                ('destination', 'in', [m.id for m in moves]),
+                ])
+        if destination_reservations:
+            Reservation.write(destination_reservations, {
+                    'failed_reason': 'destination_canceled',
+                    'failed_date': datetime.now(),
+                    })
+        Reservation.fail(source_reservations + destination_reservations)
+
+
+class PurchaseLine:
+    __name__ = 'purchase.line'
+
+    purchase_date = fields.Function(fields.Date('Purchase Date'),
+        'get_purchase_date')
+
+    def get_purchase_date(self):
+        if self.purchase:
+            return self.purchase.purchase_date
+
+    @staticmethod
+    def order_purchase_date(tables):
+        pool = Pool()
+        Purchase = pool.get('purchase.purchase')
+        line, _ = tables[None]
+        if 'purchase' not in tables:
+            purchase = Purchase.__table__()
+            tables['purchase'] = {
+                None: (purchase, line.purchase == purchase.id),
+                }
+        else:
+            purchase = tables['purchase']
+        return Purchase.purchase_date.convert_order('purchase_date',
+            tables['purchase'], Purchase)
+
+
+class ReserveRelatedMixin:
+
+    reserves = fields.Function(fields.One2Many('stock.reservation', None,
+            'Reserves'), 'get_reserves')
+    reserve_state = fields.Function(fields.Selection([
+                ('none', 'None'),
+                ('pending', 'Pending'),
+                ('delayed', 'Delayed'),
+                ('on_time', 'On Time'),
+                ], 'Reserve State'), 'get_reserve_state',
+        searcher='search_reserve_state')
+    reserve_day_difference = fields.Function(fields.Integer('Day Difference'),
+        'get_reserve_day_difference',
+        searcher='search_reserve_day_difference')
+
+    def get_reserves(self, name):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        return [x.id for x in Reservation.search([
+                    ('destination_document', '=', str(self))])]
+
+    def get_reserve_state(self, name):
+        if not self.reserves:
+            return 'none'
+        if any(x.reserve_type == 'pending' for x in self.reserves):
+            return 'pending'
+        if any(x.reserve_type == 'delayed' for x in self.reserves):
+            return 'delayed'
+        if all((x.reserve_type == 'on_time' or x.reserve_type == 'in_stock')
+                for x in self.reserves):
+            return 'on_time'
+        return 'none'
+
+    def get_reserve_day_difference(self, name):
+        reserves_difference = [x.day_difference for x in self.reserves
+            if x.day_difference]
+        if not reserves_difference:
+            return
+        return max(reserves_difference)
+
+    @classmethod
+    def search_reserve_state(cls, name, clause):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        clause[0] = 'reserve_type'
+        if clause[2] == 'on_time':
+            clause[1] = 'in' if clause[1] == '=' else 'not in'
+            clause[2] = ['on_time', 'in_stock']
+        reserves = Reservation.search([
+                ('destination_document', 'like', cls.__name__ + ',%'),
+                clause,
+                ])
+        return [('id', 'in', [x.destination_document.id for x in reserves])]
+
+    @classmethod
+    def search_reserve_day_difference(cls, name, clause):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        clause[0] = 'day_difference'
+        reserves = Reservation.search([
+                ('destination_document', 'like', cls.__name__ + ',%'),
+                clause,
+                ])
+        return [('id', 'in', [x.destination_document.id for x in reserves])]
+
+
+class Production(ReserveRelatedMixin):
+    __name__ = 'production'
+
+
+class Sale(ReserveRelatedMixin):
+    __name__ = 'sale.sale'
+
+
+class ShipmentOut(ReserveRelatedMixin):
+    __name__ = 'stock.shipment.out'

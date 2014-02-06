@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- This file is part of Tryton.  The COPYRIGHT file at the top level of
+this repository contains the full copyright notices and license terms. -->
+<form string="Create Stock Reservations" col="4">
+    <image name="tryton-dialog-information" xexpand="0" xfill="0"/>
+    <label string="Create Stock Reservations?" id="create"
+        yalign="0.0" xalign="0.0" xexpand="1"/>
+    <newline />
+    <group id="wait" col="4" colspan="2">
+        <label name="wait" />
+        <field name="wait" />
+    </group>
+</form>

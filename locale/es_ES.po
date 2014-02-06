@@ -1,0 +1,513 @@
+# 
+msgid ""
+msgstr "Content-Type: text/plain; charset=utf-8\n"
+
+msgctxt "error:stock.reservation:"
+msgid "Reservation \"%s\" overpasses Move \"%s\" quantity."
+msgstr "La cantidad de la reserva \"%s\" sobrepasa la cantidad el movimiento \"%s\"."
+
+msgctxt "error:stock.reservation:"
+msgid ""
+"You can not delete stock reservation \"%s\" because it is not in draft "
+"state."
+msgstr ""
+"No se puede eliminar la reserva de estoc \"%s\" porqué no esta en estado "
+"borrador."
+
+msgctxt "field:production,reserve_day_difference:"
+msgid "Day Difference"
+msgstr "Días de diferencia"
+
+msgctxt "field:production,reserve_state:"
+msgid "Reserve State"
+msgstr "Estado reserva"
+
+msgctxt "field:production,reserves:"
+msgid "Reserves"
+msgstr "Reservas"
+
+msgctxt "field:sale.sale,reserve_day_difference:"
+msgid "Day Difference"
+msgstr "Días de diferencia"
+
+msgctxt "field:sale.sale,reserve_state:"
+msgid "Reserve State"
+msgstr "Estado reserva"
+
+msgctxt "field:sale.sale,reserves:"
+msgid "Reserves"
+msgstr "Reservas"
+
+msgctxt "field:stock.create_reservations.start,id:"
+msgid "ID"
+msgstr "Identificador"
+
+msgctxt "field:stock.create_reservations.start,wait:"
+msgid "Mark new reservations as waiting"
+msgstr "Marcar las nuevas reservas como en espera"
+
+msgctxt "field:stock.move,future_reserved_quantity:"
+msgid "Future Reserved Quantity"
+msgstr "Cantidad reservada a futuro"
+
+msgctxt "field:stock.move,incompatible_reserved_quantity:"
+msgid "Incompatible Reserved Quantity"
+msgstr "Cantidad reservada incompatible"
+
+msgctxt "field:stock.move,reserved:"
+msgid "Reserved"
+msgstr "Reservado"
+
+msgctxt "field:stock.move,reserved_quantity:"
+msgid "Reserved Quantity"
+msgstr "Cantidad reservada"
+
+msgctxt "field:stock.move,reserves_destination:"
+msgid "Destination Reserves"
+msgstr "Reservas destino"
+
+msgctxt "field:stock.move,reserves_source:"
+msgid "Source Reserves"
+msgstr "Reservas orien"
+
+msgctxt "field:stock.reservation,company:"
+msgid "Company"
+msgstr "Empresa"
+
+msgctxt "field:stock.reservation,create_date:"
+msgid "Create Date"
+msgstr "Fecha de creación"
+
+msgctxt "field:stock.reservation,create_uid:"
+msgid "Create User"
+msgstr "Usuario de creación"
+
+msgctxt "field:stock.reservation,customer_return_shipments:"
+msgid "Customer Return Shipments"
+msgstr "Devoluciones de cliente"
+
+msgctxt "field:stock.reservation,customer_shipments:"
+msgid "Customer Shipments"
+msgstr "Albaranes cliente"
+
+msgctxt "field:stock.reservation,day_difference:"
+msgid "Day Difference"
+msgstr "Días de diferencia"
+
+msgctxt "field:stock.reservation,destination:"
+msgid "Destination Move"
+msgstr "Movimiento destino"
+
+msgctxt "field:stock.reservation,destination_document:"
+msgid "Destination"
+msgstr "Destino"
+
+msgctxt "field:stock.reservation,destination_from_location:"
+msgid "From Location"
+msgstr "Desde ubicación"
+
+msgctxt "field:stock.reservation,destination_planned_date:"
+msgid "Planned Date"
+msgstr "Fecha estimada"
+
+msgctxt "field:stock.reservation,destination_to_location:"
+msgid "To Location"
+msgstr "A ubicación"
+
+msgctxt "field:stock.reservation,failed_date:"
+msgid "Failed Date"
+msgstr "Fecha fracaso"
+
+msgctxt "field:stock.reservation,failed_reason:"
+msgid "Failing Reason"
+msgstr "Motivo fracaso"
+
+msgctxt "field:stock.reservation,get_from_stock:"
+msgid "Get from stock"
+msgstr "Obtener de stock"
+
+msgctxt "field:stock.reservation,id:"
+msgid "ID"
+msgstr "Identificador"
+
+msgctxt "field:stock.reservation,internal_quantity:"
+msgid "Internal Quantity"
+msgstr "Cantidad interna"
+
+msgctxt "field:stock.reservation,internal_shipments:"
+msgid "Internal Shipments"
+msgstr "Albaranes internos"
+
+msgctxt "field:stock.reservation,location:"
+msgid "Location"
+msgstr "Ubicación"
+
+msgctxt "field:stock.reservation,product:"
+msgid "Product"
+msgstr "Productos"
+
+msgctxt "field:stock.reservation,productions:"
+msgid "Productions"
+msgstr "Producciones"
+
+msgctxt "field:stock.reservation,quantity:"
+msgid "Quantity"
+msgstr "Cantidad"
+
+msgctxt "field:stock.reservation,rec_name:"
+msgid "Name"
+msgstr "Nombre"
+
+msgctxt "field:stock.reservation,reserve_type:"
+msgid "Reserve Type"
+msgstr "Tipo de reserva"
+
+msgctxt "field:stock.reservation,source:"
+msgid "Source Move"
+msgstr "Movimiento origen"
+
+msgctxt "field:stock.reservation,source_document:"
+msgid "Source"
+msgstr "Origen"
+
+msgctxt "field:stock.reservation,source_from_location:"
+msgid "From Location"
+msgstr "Desde ubicación"
+
+msgctxt "field:stock.reservation,source_planned_date:"
+msgid "Planned Date"
+msgstr "Fecha estimada"
+
+msgctxt "field:stock.reservation,source_to_location:"
+msgid "To Location"
+msgstr "A ubicación"
+
+msgctxt "field:stock.reservation,state:"
+msgid "State"
+msgstr "Estado"
+
+msgctxt "field:stock.reservation,supplier_return_shipments:"
+msgid "Supplier Return Shipments"
+msgstr "Devoluciones de proveedor"
+
+msgctxt "field:stock.reservation,supplier_shipments:"
+msgid "Supplier Shipments"
+msgstr "Albaranes proveedor"
+
+msgctxt "field:stock.reservation,unit_digits:"
+msgid "Unit Digits"
+msgstr "Dígitos unidad"
+
+msgctxt "field:stock.reservation,uom:"
+msgid "Uom"
+msgstr "UdM"
+
+msgctxt "field:stock.reservation,write_date:"
+msgid "Write Date"
+msgstr "Fecha modificación"
+
+msgctxt "field:stock.reservation,write_uid:"
+msgid "Write User"
+msgstr "Usuario modificación"
+
+msgctxt "field:stock.shipment.out,reserve_day_difference:"
+msgid "Day Difference"
+msgstr "Días de diferencia"
+
+msgctxt "field:stock.shipment.out,reserve_state:"
+msgid "Reserve State"
+msgstr "Estado reserva"
+
+msgctxt "field:stock.shipment.out,reserves:"
+msgid "Reserves"
+msgstr "Reservas"
+
+msgctxt "field:stock.wait_reservation.start,id:"
+msgid "ID"
+msgstr "Identificador"
+
+msgctxt "help:stock.create_reservations.start,wait:"
+msgid "If marked the new reservations will be created in waiting state."
+msgstr "Si se marca las reservas se crearan en estado en espera"
+
+msgctxt "help:stock.reservation,internal_quantity:"
+msgid "Quantity in product default UOM"
+msgstr "Cantitat en la UdM por defecto del producto"
+
+msgctxt "model:ir.action,name:act_customer_return_shipment_form"
+msgid "Customer Return Shipments"
+msgstr "Devoluciones de cliente"
+
+msgctxt "model:ir.action,name:act_customer_shipment_form"
+msgid "Customer Shipments"
+msgstr "Albaranes cliente"
+
+msgctxt "model:ir.action,name:act_internal_shipment_form"
+msgid "Internal Shipments"
+msgstr "Albaranes internos"
+
+msgctxt "model:ir.action,name:act_production_form"
+msgid "Production"
+msgstr "Producción"
+
+msgctxt "model:ir.action,name:act_reservation_form"
+msgid "Reservations"
+msgstr "Reservas"
+
+msgctxt "model:ir.action,name:act_stock_reservation"
+msgid "Stock Reservation"
+msgstr "Reserva de estoc"
+
+msgctxt "model:ir.action,name:act_stock_reservation_create"
+msgid "Create Stock Reservations"
+msgstr "Crear reservas de estoc"
+
+msgctxt "model:ir.action,name:act_stock_reservation_type"
+msgid "Stock Reservation by Type"
+msgstr "Reserva de estoc por Tipo"
+
+msgctxt "model:ir.action,name:act_supplier_return_shipment_form"
+msgid "Supplier Return Shipments"
+msgstr "Devoluciones de proveedor"
+
+msgctxt "model:ir.action,name:act_supplier_shipment_form"
+msgid "Supplier Shipments"
+msgstr "Albaranes proveedor"
+
+msgctxt "model:ir.action,name:wizard_wait_reservation"
+msgid "Wait Reservation"
+msgstr "Esperar reserva"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_done_domain"
+msgid "All"
+msgstr "Todos"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_draft_domain"
+msgid "Draft"
+msgstr "Borrador"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_failed_domain"
+msgid "Failed"
+msgstr "Fracasado"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_type_all_domain"
+msgid "All"
+msgstr "Todos"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_type_delayed_domain"
+msgid "Assigned Delayed"
+msgstr "Asignado en retraso"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_type_exceeding_domain"
+msgid "Exceeding"
+msgstr "Sobrante"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_type_in_stock_domain"
+msgid "In Stock"
+msgstr "En stock"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_type_on_time_domain"
+msgid "Assigned On Time"
+msgstr "Asignado a tiempo"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_type_pending_domain"
+msgid "To be Assigned"
+msgstr "Pendiente de asignar"
+
+msgctxt ""
+"model:ir.action.act_window.domain,name:act_stock_reservation_waiting_domain"
+msgid "Waiting"
+msgstr "En espera"
+
+msgctxt "model:ir.cron,name:cron_generate_request"
+msgid "Generate Stock Reservation"
+msgstr "Generar Reservas de Estoc"
+
+msgctxt "model:ir.ui.menu,name:menu_stock_reservation"
+msgid "Stock Reservation"
+msgstr "Reserva de estoc"
+
+msgctxt "model:ir.ui.menu,name:menu_stock_reservation_create"
+msgid "Create Stock Reservations"
+msgstr "Crear reservas de estoc"
+
+msgctxt "model:ir.ui.menu,name:menu_stock_reservation_type"
+msgid "Stock Reservation by Type"
+msgstr "Reserva de estoc por Tipo"
+
+msgctxt "model:res.group,name:group_stock_reservation"
+msgid "Stock Reservation"
+msgstr "Reserva de estoc"
+
+msgctxt "model:res.user,name:user_generate_reservation"
+msgid "Cron Stock Reservation"
+msgstr "Cron Reservas de Estoc"
+
+msgctxt "model:stock.create_reservations.start,name:"
+msgid "Create Reservations"
+msgstr "Crear reservas"
+
+msgctxt "model:stock.reservation,name:"
+msgid "Stock Reservation"
+msgstr "Reserva de estoc"
+
+msgctxt "model:stock.wait_reservation.start,name:"
+msgid "Wait Reservations"
+msgstr "Esperar reservas"
+
+msgctxt "selection:production,reserve_state:"
+msgid "Delayed"
+msgstr "Retrasado"
+
+msgctxt "selection:production,reserve_state:"
+msgid "None"
+msgstr "Ninguno"
+
+msgctxt "selection:production,reserve_state:"
+msgid "On Time"
+msgstr "A tiempo"
+
+msgctxt "selection:production,reserve_state:"
+msgid "Pending"
+msgstr "Pendiente"
+
+msgctxt "selection:sale.sale,reserve_state:"
+msgid "Delayed"
+msgstr "Retrasado"
+
+msgctxt "selection:sale.sale,reserve_state:"
+msgid "None"
+msgstr "Ninguno"
+
+msgctxt "selection:sale.sale,reserve_state:"
+msgid "On Time"
+msgstr "A tiempo"
+
+msgctxt "selection:sale.sale,reserve_state:"
+msgid "Pending"
+msgstr "Pendiente"
+
+msgctxt "selection:stock.reservation,failed_reason:"
+msgid ""
+msgstr ""
+
+msgctxt "selection:stock.reservation,failed_reason:"
+msgid "Destination Move was canceled"
+msgstr "El movimiento destino fue cancelado"
+
+msgctxt "selection:stock.reservation,failed_reason:"
+msgid "Source Move was canceled"
+msgstr "El movimiento origen fue cancelado"
+
+msgctxt "selection:stock.reservation,reserve_type:"
+msgid "Assigned Delayed"
+msgstr "Asignado en retraso"
+
+msgctxt "selection:stock.reservation,reserve_type:"
+msgid "Assigned On Time"
+msgstr "Asignado a tiempo"
+
+msgctxt "selection:stock.reservation,reserve_type:"
+msgid "Exceeding"
+msgstr "Sobrante"
+
+msgctxt "selection:stock.reservation,reserve_type:"
+msgid "In Stock"
+msgstr "En stock"
+
+msgctxt "selection:stock.reservation,reserve_type:"
+msgid "To be Assigned"
+msgstr "Pendiente de asignar"
+
+msgctxt "selection:stock.reservation,state:"
+msgid "Done"
+msgstr "Realizado"
+
+msgctxt "selection:stock.reservation,state:"
+msgid "Draft"
+msgstr "Borrador"
+
+msgctxt "selection:stock.reservation,state:"
+msgid "Failed"
+msgstr "Fracasado"
+
+msgctxt "selection:stock.reservation,state:"
+msgid "Waiting"
+msgstr "En espera"
+
+msgctxt "selection:stock.shipment.out,reserve_state:"
+msgid "Delayed"
+msgstr "Retrasado"
+
+msgctxt "selection:stock.shipment.out,reserve_state:"
+msgid "None"
+msgstr "Ninguno"
+
+msgctxt "selection:stock.shipment.out,reserve_state:"
+msgid "On Time"
+msgstr "A tiempo"
+
+msgctxt "selection:stock.shipment.out,reserve_state:"
+msgid "Pending"
+msgstr "Pendiente"
+
+msgctxt "view:stock.create_reservations.start:"
+msgid "Create Stock Reservations"
+msgstr "Crear reservas de estoc"
+
+msgctxt "view:stock.create_reservations.start:"
+msgid "Create Stock Reservations?"
+msgstr "Crear reservas de estoc?"
+
+msgctxt "view:stock.reservation:"
+msgid "Destination Move"
+msgstr "Movimiento destino"
+
+msgctxt "view:stock.reservation:"
+msgid "Reset to Draft"
+msgstr "Restaurar a borrador"
+
+msgctxt "view:stock.reservation:"
+msgid "Source Move"
+msgstr "Movimiento origen"
+
+msgctxt "view:stock.reservation:"
+msgid "Stock Reservation"
+msgstr "Reserva de estoc"
+
+msgctxt "view:stock.reservation:"
+msgid "Wait"
+msgstr "Esperando"
+
+msgctxt "view:stock.wait_reservation.start:"
+msgid "Wait Stock Reservations"
+msgstr "Esperar reservas de Estoc"
+
+msgctxt "view:stock.wait_reservation.start:"
+msgid "Wait Stock Reservations?"
+msgstr "Esperar reservas de Estoc?"
+
+msgctxt "wizard_button:stock.create_reservations,start,create_:"
+msgid "Create"
+msgstr "Crear"
+
+msgctxt "wizard_button:stock.create_reservations,start,end:"
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgctxt "wizard_button:stock.wait_reservation,start,end:"
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgctxt "wizard_button:stock.wait_reservation,start,wait_:"
+msgid "Wait"
+msgstr "Esperando"

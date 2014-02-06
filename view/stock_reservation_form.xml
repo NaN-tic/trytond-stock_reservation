@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<!-- The COPYRIGHT file at the top level of this repository contains the full
+     copyright notices and license terms. -->
+<form string="Stock Reservation">
+    <label name="company"/>
+    <field name="company"/>
+    <label name="location"/>
+    <field name="location"/>
+    <label name="product"/>
+    <field name="product"/>
+    <label name="get_from_stock"/>
+    <field name="get_from_stock"/>
+    <label name="quantity"/>
+    <field name="quantity"/>
+    <label name="uom"/>
+    <field name="uom"/>
+    <separator id="source_move" string="Source Move" colspan="4"/>
+    <label name="source_document"/>
+    <field name="source_document" colspan="3"/>
+    <label name="source"/>
+    <field name="source"/>
+    <label name="source_planned_date"/>
+    <field name="source_planned_date"/>
+    <label name="source_from_location"/>
+    <field name="source_from_location"/>
+    <label name="source_to_location"/>
+    <field name="source_to_location"/>
+    <separator id="destination_move" string="Destination Move" colspan="4"/>
+    <label name="destination_document"/>
+    <field name="destination_document" colspan="3"/>
+    <label name="destination"/>
+    <field name="destination"/>
+    <label name="destination_planned_date"/>
+    <field name="destination_planned_date"/>
+    <label name="destination_from_location"/>
+    <field name="destination_from_location"/>
+    <label name="destination_to_location"/>
+    <field name="destination_to_location"/>
+    <separator id="state" colspan="4"/>
+    <group col="4" id="state_buttons" colspan="4">
+        <label name="state"/>
+        <field name="state"/>
+        <group col="5" colspan="2" id="buttons">
+            <button string="Wait" name="wait" icon="tryton-go-next"/>
+            <button string="Reset to Draft" name="draft" icon="tryton-clear"/>
+        </group>
+    </group>
+    <field name="internal_shipments" invisible="1" />
+    <field name="customer_shipments" invisible="1" />
+    <field name="customer_return_shipments" invisible="1" />
+    <field name="supplier_shipments" invisible="1" />
+    <field name="supplier_return_shipments" invisible="1" />
+    <field name="productions" invisible="1" />
+</form>
