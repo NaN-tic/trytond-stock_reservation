@@ -1031,7 +1031,7 @@ class Move:
         if self.future_reserved_quantity:
             return []
         remaining = self.internal_quantity - self.reserved_quantity
-        available = sum([x[1] for x in location_quantities])
+        available = sum([x for x in location_quantities.itervalues()])
         if available - self.incompatible_reserved_quantity < remaining:
             return []
         return res
