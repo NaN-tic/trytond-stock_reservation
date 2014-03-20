@@ -518,8 +518,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
             self.raise_user_error('reservation_overpass_move', (self.rec_name,
                 move.rec_name))
         if move_qty > self.quantity:
-            remaining_quantity = Uom.compute_qty(self.uom,
-                move_qty - self.quantity, move.uom)
+            remaining_quantity = move_qty - self.quantity
             new_move, = Move.copy([move], {'quantity': remaining_quantity})
             move.quantity = self.quantity
             move.uom = self.uom
@@ -647,8 +646,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 key = ('purchase_line', purchase_line.id,)
                 consumed_quantity = consumed_quantities.get(key, 0.0)
                 internal_quantity = Uom.compute_qty(
-                    purchase_line.product.default_uom, purchase_line.quantity,
-                    purchase_line.unit)
+                    purchase_line.unit, purchase_line.quantity,
+                    purchase_line.product.default_uom)
+                skip_ids = set(x.id for x in purchase_line.moves_recreated
+                    + purchase_line.moves_ignored)
+                for move in purchase_line.moves:
+                    if move.state == 'done' and not move.id in skip_ids:
+                        internal_quantity -= move.internal_quantity
                 remaining_quantity = internal_quantity - consumed_quantity
 
                 if remaining_quantity <= 0.0:
@@ -678,8 +682,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 key = ('purchase_request', purchase_request.id,)
                 consumed_quantity = consumed_quantities.get(key, 0.0)
                 internal_quantity = Uom.compute_qty(
-                    purchase_request.product.default_uom,
-                    purchase_request.quantity, purchase_request.unit)
+                    purchase_request.unit, purchase_request.quantity,
+                    purchase_request.product.default_uom)
                 remaining_quantity = internal_quantity - consumed_quantity
 
                 if remaining_quantity <= 0.0:
@@ -726,8 +730,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
             key = ('purchase_line', purchase_line.id,)
             consumed_quantity = consumed_quantities.get(key, 0.0)
             internal_quantity = Uom.compute_qty(
-                purchase_line.product.default_uom, purchase_line.quantity,
-                purchase_line.unit)
+                purchase_line.unit, purchase_line.quantity,
+                purchase_line.product.default_uom)
+            skip_ids = set(x.id for x in purchase_line.moves_recreated
+                + purchase_line.moves_ignored)
+            for move in purchase_line.moves:
+                if move.state == 'done' and not move.id in skip_ids:
+                    internal_quantity -= move.internal_quantity
             remaining_quantity = internal_quantity - consumed_quantity
 
             if remaining_quantity <= 0.0:
@@ -744,8 +753,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
             key = ('purchase_request', purchase_request.id,)
             consumed_quantity = consumed_quantities.get(key, 0.0)
             internal_quantity = Uom.compute_qty(
-                purchase_request.product.default_uom,
-                purchase_request.quantity, purchase_request.uom)
+                purchase_request.uom, purchase_request.quantity,
+                purchase_request.product.default_uom)
             remaining_quantity = internal_quantity - consumed_quantity
 
             if remaining_quantity <= 0.0:
@@ -830,6 +839,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Move = pool.get('stock.move')
         domain = [
             ('state', '=', 'draft'),
+            ('product.template.consumable', '=', False),
             ]
         if move:
             domain.extend([
@@ -853,7 +863,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         """
         Return the reservation to create given an source and destination move.
         The quantity param limits the reservation quantity
-        The uom param is used to convert uom to destination uoms
+        The uom param is used to force the reservation uom
         """
         pool = Pool()
         Uom = pool.get('product.uom')
@@ -861,7 +871,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
         if not quantity:
             quantity = destination.quantity
         if uom:
-            quantity = Uom.compute_qty(uom, quantity, move_uom)
+            quantity = Uom.compute_qty(move_uom, quantity, uom)
+            move_uom = uom
 
         if destination:
             location = destination.from_location
