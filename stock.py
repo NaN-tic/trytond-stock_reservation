@@ -17,7 +17,7 @@ from trytond.rpc import RPC
 
 __all__ = ['Reservation', 'WaitReservation', 'WaitReservationStart',
     'CreateReservations', 'CreateReservationsStart', 'Move', 'PurchaseLine',
-    'Production', 'Sale', 'ShipmentOut']
+    'Production', 'Sale', 'ShipmentOut', 'Purchase']
 __metaclass__ = PoolMeta
 
 STATES = {
@@ -302,7 +302,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
     def get_destination_document(self, name):
         if not self.destination:
-            return ''
+            return None
         if self.destination.production_input:
             return str(self.destination.production_input)
         if self.destination.production_output:
@@ -682,7 +682,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 key = ('purchase_request', purchase_request.id,)
                 consumed_quantity = consumed_quantities.get(key, 0.0)
                 internal_quantity = Uom.compute_qty(
-                    purchase_request.unit, purchase_request.quantity,
+                    purchase_request.uom, purchase_request.quantity,
                     purchase_request.product.default_uom)
                 remaining_quantity = internal_quantity - consumed_quantity
 
@@ -824,6 +824,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 ('state', '=', 'draft'),
                 ('from_location.type', 'in', ['storage']),
                 ('to_location.type', 'in', ['storage', 'production']),
+                # TODO: ('product.consumable', '=', False),
                 ], order=[
                 ('planned_date', 'ASC'),
                 ('internal_quantity', 'DESC'),
@@ -849,6 +850,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         else:
             domain.extend([
                     ('to_location.type', 'in', ['storage', 'production']),
+                    # TODO: ('product.consumable', '=', False),
                     ('shipment', 'not like', 'stock.shipment.out,%'),
                     ('shipment', 'not like', 'stock.shipment.in.return,%'),
                     ])
@@ -867,6 +869,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         """
         pool = Pool()
         Uom = pool.get('product.uom')
+        ShipmentOut = pool.get('stock.shipment.out')
         move_uom = destination.uom if destination else source.uom
         if not quantity:
             quantity = destination.quantity
@@ -883,7 +886,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
         source_document = None
         if source:
-            if source.shipment:
+            if source.shipment and not isinstance(source.shipment,
+                    ShipmentOut):
                 source_document = source.shipment
             elif source.production_output:
                 source_document = source.production_output
@@ -1002,10 +1006,12 @@ class Move:
         return reserved
 
     def get_reserved_quantity(self, name):
+        if not self.reserves_destination:
+            return self.internal_quantity
         quantity = 0.0
         for reservation in self.reserves_destination:
             if (reservation.state in ('confirmed', 'waiting')
-                    and reservation.reservation_type == 'En Estoc'):
+                    and reservation.reserve_type == 'in_stock'):
                 quantity += reservation.internal_quantity
         return quantity
 
@@ -1013,8 +1019,8 @@ class Move:
         quantity = 0.0
         for reservation in self.reserves_destination:
             if (reservation.state in ('confirmed', 'waiting')
-                    and reservation.reservation_type in (
-                        'Assignat fora de termini', 'Assignat a temps')):
+                    and reservation.reserve_type in (
+                        'delayed', 'on_time')):
                 quantity += reservation.internal_quantity
         return quantity
 
@@ -1219,6 +1225,123 @@ class Production(ReserveRelatedMixin):
 class Sale(ReserveRelatedMixin):
     __name__ = 'sale.sale'
 
+    purchases = fields.Function(fields.One2Many('purchase.purchase', None,
+            'Purchases'), 'get_purchases')
+
+    def get_purchases(self, name):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        PurchaseLine = pool.get('purchase.line')
+        purchases = set()
+        reservations = []
+
+        def get_recursive_moves(moves, processed_moves=None):
+            if not moves:
+                return []
+            if processed_moves is None:
+                processed_moves = set()
+
+            reservations = Reservation.search([
+                    ('destination', 'in', moves),
+                    ])
+            new_moves = set([x.source for x in reservations if x.source])
+            for move in moves:
+                if move.id in processed_moves:
+                    continue
+                if move.production_output:
+                    new_moves |= set(move.production_output.inputs)
+                processed_moves.add(move.id)
+
+            reservations += get_recursive_moves(list(new_moves),
+                processed_moves)
+
+            return reservations
+
+        moves = []
+        for shipment in self.shipments + self.shipment_returns:
+            moves += shipment.inventory_moves
+        reservations += get_recursive_moves(moves)
+
+        for reservation in reservations:
+            if reservation.source and reservation.source.origin:
+                origin = reservation.source.origin
+                if isinstance(origin, PurchaseLine):
+                    purchases.add(origin.purchase)
+            elif reservation.source_document and isinstance(
+                    reservation.source_document, PurchaseLine):
+                purchases.add(reservation.source_document.purchase)
+
+        return [p.id for p in purchases]
+
 
 class ShipmentOut(ReserveRelatedMixin):
     __name__ = 'stock.shipment.out'
+
+
+class Purchase:
+    __name__ = 'purchase.purchase'
+    sales = fields.Function(fields.One2Many('sale.sale', None, 'Sales'),
+        'get_sales')
+
+    def get_sales(self, name):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        SaleLine = pool.get('sale.line')
+        ShipmentOut = pool.get('stock.shipment.out')
+        sales = set()
+        reservations = []
+
+        def get_recursive_moves(moves, processed_moves=None):
+            if not moves:
+                return []
+            if processed_moves is None:
+                processed_moves = set()
+
+            reservations = Reservation.search([
+                    ('source', 'in', moves),
+                    ])
+            new_moves = set([x.destination for x in
+                    reservations if x.destination])
+            for move in moves:
+                if move.id in processed_moves:
+                    continue
+                if move.production_input:
+                    new_moves |= set(move.production_input.outputs)
+                processed_moves.add(move.id)
+
+            reservations += get_recursive_moves(list(new_moves),
+                processed_moves)
+
+            return reservations
+
+        moves = []
+        for shipment in self.shipments + self.shipment_returns:
+            moves += shipment.inventory_moves
+        reservations = get_recursive_moves(moves)
+
+        direct_reservations = Reservation.search([
+                ('source_document', 'in', [str(l) for l in self.lines]),
+                ])
+
+        reservations += direct_reservations
+        reservations += get_recursive_moves([x.destination for x in
+                direct_reservations if x.destination])
+
+        for reservation in reservations:
+            if reservation.destination:
+                if reservation.destination.origin:
+                    origin = reservation.destination.origin
+                    if isinstance(origin, SaleLine):
+                        sales.add(origin.sale)
+                elif reservation.destination_document:
+                    dest_move = reservation.destination
+                    shipment = reservation.destination_document
+                    if isinstance(shipment, ShipmentOut):
+                        for move in shipment.outgoing_moves:
+                            if not move.product == dest_move.product:
+                                continue
+                            if move.origin and isinstance(move.origin,
+                                    SaleLine):
+                                sales.add(move.origin.sale)
+
+        return [s.id for s in sales]

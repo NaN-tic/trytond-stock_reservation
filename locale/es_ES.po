@@ -26,6 +26,18 @@ msgctxt "field:production,reserves:"
 msgid "Reserves"
 msgstr "Reservas"
 
+msgctxt "field:purchase.line,purchase_date:"
+msgid "Purchase Date"
+msgstr "Fecha de compra"
+
+msgctxt "field:purchase.purchase,sales:"
+msgid "Sales"
+msgstr "Ventas"
+
+msgctxt "field:sale.sale,purchases:"
+msgid "Purchases"
+msgstr "Compras"
+
 msgctxt "field:sale.sale,reserve_day_difference:"
 msgid "Day Difference"
 msgstr "Días de diferencia"
@@ -250,9 +262,17 @@ msgctxt "model:ir.action,name:act_production_form"
 msgid "Production"
 msgstr "Producción"
 
+msgctxt "model:ir.action,name:act_purchases_form"
+msgid "Purchases"
+msgstr "Compras"
+
 msgctxt "model:ir.action,name:act_reservation_form"
 msgid "Reservations"
 msgstr "Reservas"
+
+msgctxt "model:ir.action,name:act_sales_form"
+msgid "Sales"
+msgstr "Ventas"
 
 msgctxt "model:ir.action,name:act_stock_reservation"
 msgid "Stock Reservation"
@@ -459,6 +479,14 @@ msgstr "A tiempo"
 msgctxt "selection:stock.shipment.out,reserve_state:"
 msgid "Pending"
 msgstr "Pendiente"
+
+msgctxt "view:purchase.purchase:"
+msgid "Sales"
+msgstr "Ventas"
+
+msgctxt "view:sale.sale:"
+msgid "Purchases"
+msgstr "Compras"
 
 msgctxt "view:stock.create_reservations.start:"
 msgid "Create Stock Reservations"
