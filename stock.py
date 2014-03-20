@@ -825,6 +825,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 ('from_location.type', 'in', ['storage']),
                 ('to_location.type', 'in', ['storage', 'production']),
                 # TODO: ('product.consumable', '=', False),
+                ('product.template.type', '!=', 'service'),
                 ], order=[
                 ('planned_date', 'ASC'),
                 ('internal_quantity', 'DESC'),
@@ -840,6 +841,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Move = pool.get('stock.move')
         domain = [
             ('state', '=', 'draft'),
+            ('product.template.type', '!=', 'service'),
             ('product.template.consumable', '=', False),
             ]
         if move:
