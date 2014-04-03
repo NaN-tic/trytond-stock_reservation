@@ -176,6 +176,10 @@ msgctxt "field:stock.reservation,reserve_type:"
 msgid "Reserve Type"
 msgstr "Tipus de reserva"
 
+msgctxt "field:stock.reservation,sales:"
+msgid "Sales"
+msgstr "Vendes"
+
 msgctxt "field:stock.reservation,source:"
 msgid "Source Move"
 msgstr "Moviment origen"
@@ -264,17 +268,13 @@ msgctxt "model:ir.action,name:act_production_form"
 msgid "Production"
 msgstr "Producció"
 
-msgctxt "model:ir.action,name:act_purchases_form"
-msgid "Purchases"
-msgstr "Compres"
-
 msgctxt "model:ir.action,name:act_reservation_form"
 msgid "Reservations"
 msgstr "Reserves"
 
-msgctxt "model:ir.action,name:act_sales_form"
-msgid "Sales"
-msgstr "Vendes"
+msgctxt "model:ir.action,name:act_reservation_form_sale"
+msgid "Reservations"
+msgstr "Reserves"
 
 msgctxt "model:ir.action,name:act_stock_reservation"
 msgid "Stock Reservation"

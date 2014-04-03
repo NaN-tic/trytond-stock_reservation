@@ -154,6 +154,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
         'get_internal_shipments')
     productions = fields.Function(fields.One2Many('production',
             None, 'Productions'), 'get_productions')
+    sales = fields.Function(fields.One2Many('sale.sale',
+            None, 'Sales'), 'get_sales', searcher='search_sales')
 
     @classmethod
     def __setup__(cls):
@@ -341,6 +343,22 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 productions.add(move.production_output.id)
         return list(productions)
 
+    def get_sales(self, name):
+        pool = Pool()
+        SaleLine = pool.get('sale.line')
+        shipments = self.customer_shipments + self.customer_return_shipments
+        move_ids = []
+        for shipment in shipments:
+            move_ids.extend([x.id for x in shipment.outgoing_moves])
+
+        with Transaction().set_user(0, set_context=True):
+            sale_lines = SaleLine.search([
+                    ('moves', 'in', move_ids),
+                    ])
+            if sale_lines:
+                return list(set(l.sale for l in sale_lines))
+        return []
+
     def get_reserve_type(self, name):
         if self.get_from_stock:
             return 'in_stock'
@@ -396,7 +414,12 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
         Operator = fields.SQL_OPERATORS[clause[1]]
         Char = cls.state.sql_type().base
-
+        value = clause[2]
+        if isinstance(value, list):
+            if clause[1] in ('in', 'not in'):
+                value = [str(x) for x in value]
+            else:
+                value = ','.join([str(x) for x in value])
         query = reservation.join(destination, condition=(
                 destination.id == reservation.destination)).select(
                     reservation.id,
@@ -411,9 +434,16 @@ class Reservation(Workflow, ModelSQL, ModelView):
                             Concat(Literal('production,'), Cast(
                                             destination.production_output,
                                             Char))),
-                        ), clause[2])))
-
+                        ), value)))
         return [('id', 'in', query)]
+
+    @classmethod
+    def search_sales(cls, name, clause):
+        pool = Pool()
+        Move = pool.get('stock.move')
+        moves = Move.search([('sale',) + tuple(clause[1:])])
+        shipments = list(set([m.shipment for m in moves if m.shipment]))
+        return [('destination_document', 'in', shipments)]
 
     @classmethod
     def search_day_difference(cls, name, clause):
