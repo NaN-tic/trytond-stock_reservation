@@ -1258,7 +1258,7 @@ class Sale(ReserveRelatedMixin):
     __name__ = 'sale.sale'
 
     purchases = fields.Function(fields.One2Many('purchase.purchase', None,
-            'Purchases'), 'get_purchases')
+            'Purchases'), 'get_purchases', searcher='search_purchases')
 
     def get_purchases(self, name):
         pool = Pool()
@@ -1305,6 +1305,16 @@ class Sale(ReserveRelatedMixin):
 
         return [p.id for p in purchases]
 
+    @classmethod
+    def search_purchases(cls, name, clause):
+        pool = Pool()
+        Purchase = pool.get('purchase.purchase')
+        sales = set()
+        for purchase in Purchase.search([('id',) + tuple(clause[1:])]):
+            for sale in purchase.sales:
+                sales.add(sale.id)
+        return [('id', 'in', sales)]
+
 
 class ShipmentOut(ReserveRelatedMixin):
     __name__ = 'stock.shipment.out'
@@ -1313,7 +1323,7 @@ class ShipmentOut(ReserveRelatedMixin):
 class Purchase:
     __name__ = 'purchase.purchase'
     sales = fields.Function(fields.One2Many('sale.sale', None, 'Sales'),
-        'get_sales')
+        'get_sales', searcher='search_sales')
 
     def get_sales(self, name):
         pool = Pool()
@@ -1377,3 +1387,13 @@ class Purchase:
                                 sales.add(move.origin.sale)
 
         return [s.id for s in sales]
+
+    @classmethod
+    def search_sales(cls, name, clause):
+        pool = Pool()
+        Sale = pool.get('sale.sale')
+        purchases = set()
+        for sale in Sale.search([('id',) + tuple(clause[1:])]):
+            for purchase in sale.purchases:
+                purchases.add(purchase.id)
+        return [('id', 'in', purchases)]

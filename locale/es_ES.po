@@ -266,6 +266,10 @@ msgctxt "model:ir.action,name:act_production_form"
 msgid "Production"
 msgstr "Producción"
 
+msgctxt "model:ir.action,name:act_purchase_from_sales"
+msgid "Purchases"
+msgstr "Compras"
+
 msgctxt "model:ir.action,name:act_reservation_form"
 msgid "Reservations"
 msgstr "Reservas"
@@ -273,6 +277,10 @@ msgstr "Reservas"
 msgctxt "model:ir.action,name:act_reservation_form_sale"
 msgid "Reservations"
 msgstr "Reservas"
+
+msgctxt "model:ir.action,name:act_sale_from_purchases"
+msgid "Sales"
+msgstr "Ventas"
 
 msgctxt "model:ir.action,name:act_stock_reservation"
 msgid "Stock Reservation"
