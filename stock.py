@@ -17,7 +17,7 @@ from trytond.rpc import RPC
 
 __all__ = ['Reservation', 'WaitReservation', 'WaitReservationStart',
     'CreateReservations', 'CreateReservationsStart', 'Move', 'PurchaseLine',
-    'Production', 'Sale', 'ShipmentOut', 'Purchase']
+    'Production', 'Sale', 'ShipmentOut', 'Purchase', 'PurchaseRequest']
 __metaclass__ = PoolMeta
 
 STATES = {
@@ -156,6 +156,11 @@ class Reservation(Workflow, ModelSQL, ModelView):
             None, 'Productions'), 'get_productions')
     sales = fields.Function(fields.One2Many('sale.sale',
             None, 'Sales'), 'get_sales', searcher='search_sales')
+    purchases = fields.Function(fields.One2Many('purchase.purchase',
+            None, 'Purchases'), 'get_purchases', searcher='search_purchases')
+    purchase_requests = fields.Function(fields.One2Many('purchase.requests',
+            None, 'Purchase Requests'), 'get_related_purchase_requests',
+        searcher='search_purchase_requests')
 
     @classmethod
     def __setup__(cls):
@@ -284,9 +289,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
     def _get_destination_document_models(cls):
         'Return list of Model names for destination_document Reference'
         return [
-            'stock.shipment.in',
             'stock.shipment.out',
-            'stock.shipment.out.return',
             'stock.shipment.in.return',
             'stock.shipment.internal',
             'production',
@@ -356,7 +359,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     ('moves', 'in', move_ids),
                     ])
             if sale_lines:
-                return list(set(l.sale for l in sale_lines))
+                return list(set(l.sale.id for l in sale_lines))
         return []
 
     def get_reserve_type(self, name):
@@ -379,6 +382,33 @@ class Reservation(Workflow, ModelSQL, ModelView):
             destination = getattr(self.destination, name)
             if source and destination:
                 return (destination - source).days
+
+    def get_purchases(self, name):
+        pool = Pool()
+        PurchaseLine = pool.get('purchase.line')
+        shipments = self.supplier_shipments + self.supplier_return_shipments
+        move_ids = []
+        for shipment in shipments:
+            move_ids.extend([x.id for x in shipment.outgoing_moves])
+
+        res = []
+        with Transaction().set_user(0, set_context=True):
+            purchase_lines = PurchaseLine.search([
+                    ('moves', 'in', move_ids),
+                    ])
+            if purchase_lines:
+                res.extend(list(set(l.purchase for l in purchase_lines)))
+        if self.origin and isinstance(self.origin, PurchaseLine):
+            res.append(self.origin.purchase.id)
+        return res
+
+    def get_related_purchase_requests(self, name):
+        pool = Pool()
+        Request = pool.get('purchase.request')
+        res = []
+        if self.origin and isinstance(self.origin, Request):
+            res.append(self.origin.purchase.id)
+        return res
 
     @classmethod
     def search_reserve_type(cls, name, clause):
@@ -461,6 +491,16 @@ class Reservation(Workflow, ModelSQL, ModelView):
                                         source.planned_date), clause[2])
                                     ))
         return [('id', 'in', query)]
+
+    @classmethod
+    def search_purchases(cls, name, clause):
+        return [tuple(('source_document.purchase',)) + tuple(clause[1:]) +
+            tuple(('purchase.line',))]
+
+    @classmethod
+    def search_purchase_requests(cls, name, clause):
+        return [tuple(('source_document.id',)) + tuple(clause[1:]) +
+            tuple(('purchase.request',))]
 
     @classmethod
     def delete(cls, reservations):
@@ -975,7 +1015,7 @@ class CreateReservations(Wizard):
             Button('Cancel', 'end', 'tryton-cancel'),
             Button('Create', 'create_', 'tryton-ok', default=True),
             ])
-    create_ = StateAction('stock_reservation.act_stock_reservation')
+    create_ = StateAction('stock_reservation.act_stock_reservation_type')
 
     def do_create_(self, action):
         pool = Pool()
@@ -1260,11 +1300,13 @@ class Sale(ReserveRelatedMixin):
     purchases = fields.Function(fields.One2Many('purchase.purchase', None,
             'Purchases'), 'get_purchases', searcher='search_purchases')
 
-    def get_purchases(self, name):
+    purchase_requests = fields.Function(fields.One2Many('purchase.request',
+            None, 'Purchase Requests'), 'get_purchase_requests',
+        searcher='search_purchase_requests')
+
+    def get_recursive_reservations(self):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
-        PurchaseLine = pool.get('purchase.line')
-        purchases = set()
         reservations = []
 
         def get_recursive_moves(moves, processed_moves=None):
@@ -1293,8 +1335,14 @@ class Sale(ReserveRelatedMixin):
         for shipment in self.shipments + self.shipment_returns:
             moves += shipment.inventory_moves
         reservations += get_recursive_moves(moves)
+        return reservations
 
-        for reservation in reservations:
+    def get_purchases(self, name):
+        pool = Pool()
+        PurchaseLine = pool.get('purchase.line')
+        purchases = set()
+
+        for reservation in self.get_recursive_reservations():
             if reservation.source and reservation.source.origin:
                 origin = reservation.source.origin
                 if isinstance(origin, PurchaseLine):
@@ -1312,6 +1360,27 @@ class Sale(ReserveRelatedMixin):
         sales = set()
         for purchase in Purchase.search([('id',) + tuple(clause[1:])]):
             for sale in purchase.sales:
+                sales.add(sale.id)
+        return [('id', 'in', sales)]
+
+    def get_purchase_requests(self, name):
+        pool = Pool()
+        Request = pool.get('purchase.request')
+        requests = set()
+
+        for reservation in self.get_recursive_reservations():
+            if reservation.source_document and isinstance(
+                    reservation.source_document, Request):
+                requests.add(reservation.source_document)
+        return [r.id for r in requests]
+
+    @classmethod
+    def search_purchase_requests(cls, name, clause):
+        pool = Pool()
+        Request = pool.get('purchase.request')
+        sales = set()
+        for request in Request.search([('id',) + tuple(clause[1:])]):
+            for sale in request.sales:
                 sales.add(sale.id)
         return [('id', 'in', sales)]
 
@@ -1397,3 +1466,48 @@ class Purchase:
             for purchase in sale.purchases:
                 purchases.add(purchase.id)
         return [('id', 'in', purchases)]
+
+
+class PurchaseRequest:
+    __name__ = 'purchase.request'
+    sales = fields.Function(fields.One2Many('sale.sale', None, 'Sales'),
+        'get_sales', searcher='search_sales')
+
+    def get_sales(self, name):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        SaleLine = pool.get('sale.line')
+        ShipmentOut = pool.get('stock.shipment.out')
+        sales = set()
+        reservations = Reservation.search([
+                ('source_document', '=', str(self)),
+                ])
+
+        for reservation in reservations:
+            if reservation.destination:
+                if reservation.destination.origin:
+                    origin = reservation.destination.origin
+                    if isinstance(origin, SaleLine):
+                        sales.add(origin.sale)
+                elif reservation.destination_document:
+                    dest_move = reservation.destination
+                    shipment = reservation.destination_document
+                    if isinstance(shipment, ShipmentOut):
+                        for move in shipment.outgoing_moves:
+                            if not move.product == dest_move.product:
+                                continue
+                            if move.origin and isinstance(move.origin,
+                                    SaleLine):
+                                sales.add(move.origin.sale)
+
+        return [s.id for s in sales]
+
+    @classmethod
+    def search_sales(cls, name, clause):
+        pool = Pool()
+        Sale = pool.get('sale.sale')
+        requests = set()
+        for sale in Sale.search([('id',) + tuple(clause[1:])]):
+            for request in sale.purchase_requests:
+                requests.add(request.id)
+        return [('id', 'in', requests)]

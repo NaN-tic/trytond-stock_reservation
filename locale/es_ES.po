@@ -34,6 +34,10 @@ msgctxt "field:purchase.purchase,sales:"
 msgid "Sales"
 msgstr "Ventas"
 
+msgctxt "field:sale.sale,purchase_requests:"
+msgid "Purchase Requests"
+msgstr "Solicitudes de compra"
+
 msgctxt "field:sale.sale,purchases:"
 msgid "Purchases"
 msgstr "Compras"
@@ -156,11 +160,19 @@ msgstr "Ubicación"
 
 msgctxt "field:stock.reservation,product:"
 msgid "Product"
-msgstr "Productos"
+msgstr "Producto"
 
 msgctxt "field:stock.reservation,productions:"
 msgid "Productions"
 msgstr "Producciones"
+
+msgctxt "field:stock.reservation,purchase_requests:"
+msgid "Purchase Requests"
+msgstr "Solicitudes de compra"
+
+msgctxt "field:stock.reservation,purchases:"
+msgid "Purchases"
+msgstr "Compras"
 
 msgctxt "field:stock.reservation,quantity:"
 msgid "Quantity"
@@ -270,7 +282,20 @@ msgctxt "model:ir.action,name:act_purchase_from_sales"
 msgid "Purchases"
 msgstr "Compras"
 
+#, fuzzy
+msgctxt "model:ir.action,name:act_requests_from_sales"
+msgid "Purchase Requests"
+msgstr "Solicitudes de compra"
+
 msgctxt "model:ir.action,name:act_reservation_form"
+msgid "Reservations"
+msgstr "Reservas"
+
+msgctxt "model:ir.action,name:act_reservation_form_purchase"
+msgid "Reservations"
+msgstr "Reservas"
+
+msgctxt "model:ir.action,name:act_reservation_form_requests"
 msgid "Reservations"
 msgstr "Reservas"
 
@@ -279,6 +304,10 @@ msgid "Reservations"
 msgstr "Reservas"
 
 msgctxt "model:ir.action,name:act_sale_from_purchases"
+msgid "Sales"
+msgstr "Ventas"
+
+msgctxt "model:ir.action,name:act_sale_from_requests"
 msgid "Sales"
 msgstr "Ventas"
 
@@ -424,9 +453,13 @@ msgctxt "selection:sale.sale,reserve_state:"
 msgid "Pending"
 msgstr "Pendiente"
 
+#, fuzzy
 msgctxt "selection:stock.reservation,failed_reason:"
 msgid ""
 msgstr ""
+"Hola sr cliente,\n"
+"lakjsdlfkjasd\n"
+"asldfkjsaldfk"
 
 msgctxt "selection:stock.reservation,failed_reason:"
 msgid "Destination Move was canceled"

@@ -36,6 +36,10 @@ msgctxt "field:purchase.purchase,sales:"
 msgid "Sales"
 msgstr "Vendes"
 
+msgctxt "field:sale.sale,purchase_requests:"
+msgid "Purchase Requests"
+msgstr "Sol·licituds de compra"
+
 msgctxt "field:sale.sale,purchases:"
 msgid "Purchases"
 msgstr "Compres"
@@ -164,6 +168,14 @@ msgctxt "field:stock.reservation,productions:"
 msgid "Productions"
 msgstr "Produccions"
 
+msgctxt "field:stock.reservation,purchase_requests:"
+msgid "Purchase Requests"
+msgstr "Sol·licituds de compra"
+
+msgctxt "field:stock.reservation,purchases:"
+msgid "Purchases"
+msgstr "Compres"
+
 msgctxt "field:stock.reservation,quantity:"
 msgid "Quantity"
 msgstr "Quantitat"
@@ -272,7 +284,19 @@ msgctxt "model:ir.action,name:act_purchase_from_sales"
 msgid "Purchases"
 msgstr "Compres"
 
+msgctxt "model:ir.action,name:act_requests_from_sales"
+msgid "Purchase Requests"
+msgstr "Sol·licituds de compra"
+
 msgctxt "model:ir.action,name:act_reservation_form"
+msgid "Reservations"
+msgstr "Reserves"
+
+msgctxt "model:ir.action,name:act_reservation_form_purchase"
+msgid "Reservations"
+msgstr "Reserves"
+
+msgctxt "model:ir.action,name:act_reservation_form_requests"
 msgid "Reservations"
 msgstr "Reserves"
 
@@ -281,6 +305,10 @@ msgid "Reservations"
 msgstr "Reserves"
 
 msgctxt "model:ir.action,name:act_sale_from_purchases"
+msgid "Sales"
+msgstr "Vendes"
+
+msgctxt "model:ir.action,name:act_sale_from_requests"
 msgid "Sales"
 msgstr "Vendes"
 

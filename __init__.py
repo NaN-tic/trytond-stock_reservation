@@ -16,6 +16,7 @@ def register():
         Sale,
         ShipmentOut,
         Purchase,
+        PurchaseRequest,
         module='stock_reservation', type_='model')
     Pool.register(
         CreateReservations,
