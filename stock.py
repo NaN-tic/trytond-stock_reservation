@@ -158,7 +158,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
             None, 'Sales'), 'get_sales', searcher='search_sales')
     purchases = fields.Function(fields.One2Many('purchase.purchase',
             None, 'Purchases'), 'get_purchases', searcher='search_purchases')
-    purchase_requests = fields.Function(fields.One2Many('purchase.requests',
+    purchase_requests = fields.Function(fields.One2Many('purchase.request',
             None, 'Purchase Requests'), 'get_related_purchase_requests',
         searcher='search_purchase_requests')
 
