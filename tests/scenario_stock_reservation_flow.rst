@@ -164,83 +164,6 @@ Get stock locations::
     >>> output_loc, = Location.find([('code', '=', 'OUT')])
     >>> input_loc, = Location.find([('code', '=', 'IN')])
 
-Make a reservation::
-
-    >>> StockMove = Model.get('stock.move')
-    >>> StockReservation = Model.get('stock.reservation')
-    >>> incoming_move = StockMove()
-    >>> incoming_move.product = product
-    >>> incoming_move.uom = unit
-    >>> incoming_move.quantity = 1
-    >>> incoming_move.from_location = supplier_loc
-    >>> incoming_move.to_location = storage_loc
-    >>> incoming_move.planned_date = today
-    >>> incoming_move.effective_date = today
-    >>> incoming_move.company = company
-    >>> incoming_move.unit_price = Decimal('100')
-    >>> incoming_move.currency = currency
-    >>> incoming_move.save()
-    >>> outgoing_move = StockMove()
-    >>> outgoing_move.product = product
-    >>> outgoing_move.uom = unit
-    >>> outgoing_move.quantity = 1
-    >>> outgoing_move.from_location = storage_loc
-    >>> outgoing_move.to_location = customer_loc
-    >>> outgoing_move.planned_date = today
-    >>> outgoing_move.effective_date = today
-    >>> outgoing_move.company = company
-    >>> outgoing_move.unit_price = Decimal('100')
-    >>> outgoing_move.currency = currency
-    >>> outgoing_move.save()
-    >>> reservation = StockReservation()
-    >>> reservation.product = product
-    >>> reservation.uom = unit
-    >>> reservation.quantity = 1
-    >>> reservation.location = storage_loc
-    >>> reservation.destination = outgoing_move
-    >>> reservation.source = incoming_move
-    >>> reservation.save()
-    >>> reservation.state == 'draft'
-    True
-    >>> incoming_move.state == 'draft'
-    True
-    >>> outgoing_move.state == 'draft'
-    True
-
-Wait the reservation::
-
-    >>> StockReservation.wait([reservation.id], config.context)
-    >>> reservation.reload()
-    >>> reservation.state == 'waiting'
-    True
-    >>> incoming_move.reload()
-    >>> bool(incoming_move.reserved)
-    True
-    >>> outgoing_move.reload()
-    >>> bool(outgoing_move.reserved)
-    True
-
-Do the reserve::
-
-    >>> StockMove.assign([incoming_move.id], config.context)
-    >>> StockMove.do([incoming_move.id], config.context)
-    >>> reservation.reload()
-    >>> reservation.state
-    u'waiting'
-    >>> reservation.reserve_type == 'in_stock'
-    True
-    >>> outgoing_move.reload()
-    >>> outgoing_move.state
-    u'draft'
-    >>> StockMove.assign([outgoing_move.id], config.context)
-    >>> StockMove.do([outgoing_move.id], config.context)
-    >>> outgoing_move.reload()
-    >>> outgoing_move.state
-    u'done'
-    >>> reservation.reload()
-    >>> reservation.state
-    u'done'
-
 Create purchase order point::
 
     >>> OrderPoint = Model.get('stock.order_point')
@@ -265,50 +188,9 @@ Execute create purchase requests supply::
     >>> request.quantity
     15.0
 
-Check reserve from purchase requests::
+Create an Outgoing Shipment for 10 units::
 
-    >>> create_reservations = Wizard('stock.create_reservations')
-    >>> create_reservations.execute('create_')
-    >>> reservation, = StockReservation.find([('state', '=', 'draft')])
-    >>> reservation.state = 'draft'
-    >>> reservation.product == request.product
-    True
-    >>> reservation.quantity == request.quantity
-    True
-    >>> reservation.source_document == request
-    True
-    >>> reservation.reserve_type == 'exceeding'
-    True
-
-Confirm purchase request and check reserve from purchase line::
-
-    >>> PurchaseLine = Model.get('purchase.line')
-    >>> request.party = supplier
-    >>> request.save()
-    >>> create_purchase = Wizard('purchase.request.create_purchase',
-    ...     models=[request])
-    >>> create_purchase.form.payment_term = payment_term
-    >>> create_purchase.execute('start')
-    >>> purchase_line, = PurchaseLine.find([])
-    >>> purchase_line.quantity
-    15.0
-    >>> purchase_line.purchase.warehouse.storage_location == storage_loc
-    True
-    >>> create_reservations = Wizard('stock.create_reservations')
-    >>> create_reservations.execute('create_')
-    >>> reservation, = StockReservation.find([('state', '=', 'draft')])
-    >>> reservation.state = 'draft'
-    >>> reservation.product == request.product
-    True
-    >>> reservation.quantity == request.quantity
-    True
-    >>> reservation.source_document == purchase_line
-    True
-    >>> reservation.reserve_type == 'exceeding'
-    True
-
-Create an Outgoing Shipment for 10 units and test assigned to purchase line::
-
+    >>> StockMove = Model.get('stock.move')
     >>> ShipmentOut = Model.get('stock.shipment.out')
     >>> shipment_out = ShipmentOut()
     >>> shipment_out.planned_date = today
@@ -335,6 +217,10 @@ Create an Outgoing Shipment for 10 units and test assigned to purchase line::
     True
     >>> move.from_location == storage_loc
     True
+
+Create reserve and check assigned from Request::
+
+    >>> StockReservation = Model.get('stock.reservation')
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reserves = StockReservation.find([('state', '=', 'draft')])
@@ -344,7 +230,7 @@ Create an Outgoing Shipment for 10 units and test assigned to purchase line::
     True
     >>> reservation.quantity
     10.0
-    >>> reservation.source_document == purchase_line
+    >>> reservation.source_document == request
     True
     >>> reservation.destination == move
     True
@@ -357,8 +243,31 @@ Create an Outgoing Shipment for 10 units and test assigned to purchase line::
     >>> exceding_reservation.reserve_type == 'exceeding'
     True
 
+Confirm purchase request and check reserve from purchase line::
 
-Confirm the purchase and test reserve assigned to stock::
+    >>> PurchaseLine = Model.get('purchase.line')
+    >>> request.party = supplier
+    >>> request.save()
+    >>> create_purchase = Wizard('purchase.request.create_purchase',
+    ...     models=[request])
+    >>> create_purchase.form.payment_term = payment_term
+    >>> create_purchase.execute('start')
+    >>> purchase_line, = PurchaseLine.find([])
+    >>> purchase_line.quantity
+    15.0
+    >>> purchase_line.purchase.warehouse.storage_location == storage_loc
+    True
+    >>> reservation.reload()
+    >>> reservation.state = 'draft'
+    >>> reservation.product == purchase_line.product
+    True
+    >>> reservation.quantity == move.quantity
+    True
+    >>> reservation.source_document == purchase_line
+    True
+
+
+Confirm the purchase and test reserve still assigned to line::
 
     >>> Purchase = Model.get('purchase.purchase')
     >>> purchase = purchase_line.purchase
@@ -367,15 +276,14 @@ Confirm the purchase and test reserve assigned to stock::
     >>> Purchase.quote([purchase.id], config.context)
     >>> Purchase.confirm([purchase.id], config.context)
     >>> purchase_move, = purchase.moves
-    >>> create_reservations = Wizard('stock.create_reservations')
-    >>> create_reservations.execute('create_')
-    >>> reserves = StockReservation.find([('state', '=', 'draft')])
-    >>> reservation, exceding_reservation = reserves
+    >>> reservation.reload()
     >>> reservation.state = 'draft'
     >>> reservation.product == request.product
     True
     >>> reservation.quantity
     10.0
+    >>> reservation.source == None
+    True
     >>> reservation.source_document == purchase_line
     True
     >>> reservation.destination == move
@@ -384,53 +292,34 @@ Confirm the purchase and test reserve assigned to stock::
     True
     >>> reservation.reserve_type == 'on_time'
     True
-    >>> shipment_out.reserve_state == 'on_time'
-    True
-    >>> exceding_reservation.quantity
-    5.0
-    >>> exceding_reservation.reserve_type == 'exceeding'
-    True
 
-Recieve the shipment and check reserve assigned to shipment::
+Recieve the purchase line and then the reserve should be related to the move::
 
     >>> ShipmentIn = Model.get('stock.shipment.in')
-    >>> shipment_in = ShipmentIn()
-    >>> shipment_in.supplier = supplier
-    >>> for move in purchase.moves:
-    ...     incoming_move = StockMove(id=move.id)
-    ...     shipment_in.incoming_moves.append(incoming_move)
-    >>> shipment_in.save()
-    >>> ShipmentIn.receive([shipment_in.id], config.context)
-    >>> create_reservations = Wizard('stock.create_reservations')
-    >>> create_reservations.execute('create_')
-    >>> reserves = StockReservation.find([('state', '=', 'draft')])
-    >>> stock_reservation, reservation, exceding_reservation = reserves
-    >>> stock_reservation.reserve_type == 'in_stock'
-    True
-    >>> stock_reservation.location == input_loc
-    True
-    >>> reservation.product == request.product
-    True
+    >>> shipment = ShipmentIn()
+    >>> shipment.supplier = supplier
+    >>> supplier_move = StockMove(purchase_move.id)
+    >>> shipment.incoming_moves.append(supplier_move)
+    >>> shipment.save()
+    >>> ShipmentIn.receive([shipment.id], config.context)
+    >>> reservation.reload()
     >>> reservation.quantity
     10.0
-    >>> reservation.source_document == shipment_in
+    >>> inventory_move, = shipment.inventory_moves
+    >>> reservation.source == inventory_move
     True
-    >>> shipment_in.reload()
-    >>> shipment_in_move, = shipment_in.inventory_moves
-    >>> reservation.source == shipment_in_move
+    >>> reservation.source_document == purchase_line
     True
-    >>> shipment_out_move, = shipment_out.inventory_moves
-    >>> reservation.destination == shipment_out_move
+    >>> reservation.destination == move
     True
     >>> reservation.destination_document == shipment_out
     True
     >>> reservation.reserve_type == 'on_time'
     True
-    >>> shipment_out.reserve_state == 'on_time'
-    True
-    >>> exceding_reservation.source_document == shipment_in
-    True
-    >>> exceding_reservation.quantity
-    5.0
-    >>> exceding_reservation.reserve_type == 'exceeding'
+
+Finish the shipment and reserve_type should be in_stock::
+
+    >>> ShipmentIn.done([shipment.id], config.context)
+    >>> reservation.reload()
+    >>> reservation.reserve_type == 'in_stock'
     True

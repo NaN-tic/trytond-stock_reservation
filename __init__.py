@@ -10,15 +10,21 @@ def register():
         Reservation,
         CreateReservationsStart,
         WaitReservationStart,
+        PrintReservationGraphStart,
         Move,
         PurchaseLine,
         Production,
         Sale,
         ShipmentOut,
+        ShipmentIn,
         Purchase,
         PurchaseRequest,
         module='stock_reservation', type_='model')
     Pool.register(
         CreateReservations,
         WaitReservation,
+        PrintReservationGraph,
         module='stock_reservation', type_='wizard')
+    Pool.register(
+        ReservationGraph,
+        module='stock_reservation', type_='report')

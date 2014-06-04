@@ -23,48 +23,6 @@
             <field name="type">tree</field>
             <field name="name">stock_reservation_list</field>
         </record>
-        <record model="ir.action.act_window" id="act_stock_reservation">
-            <field name="name">Stock Reservation</field>
-            <field name="res_model">stock.reservation</field>
-        </record>
-        <record model="ir.action.act_window.view" id="act_stock_reservation_view1">
-            <field name="sequence" eval="10"/>
-            <field name="view" ref="stock_reservation_view_list"/>
-            <field name="act_window" ref="act_stock_reservation"/>
-        </record>
-        <record model="ir.action.act_window.view" id="act_stock_reservation_view2">
-            <field name="sequence" eval="20"/>
-            <field name="view" ref="stock_reservation_view_form"/>
-            <field name="act_window" ref="act_stock_reservation"/>
-        </record>
-        <record model="ir.action.act_window.domain"
-            id="act_stock_reservation_draft_domain">
-            <field name="name">Draft</field>
-            <field name="sequence" eval="10"/>
-            <field name="domain">[('state', '=', 'draft')]</field>
-            <field name="act_window" ref="act_stock_reservation"/>
-        </record>
-        <record model="ir.action.act_window.domain"
-            id="act_stock_reservation_waiting_domain">
-            <field name="name">Waiting</field>
-            <field name="sequence" eval="20"/>
-            <field name="domain">[('state', '=', 'waiting')]</field>
-            <field name="act_window" ref="act_stock_reservation"/>
-        </record>
-        <record model="ir.action.act_window.domain"
-            id="act_stock_reservation_failed_domain">
-            <field name="name">Failed</field>
-            <field name="sequence" eval="30"/>
-            <field name="domain">[('state', '=', 'failed')]</field>
-            <field name="act_window" ref="act_stock_reservation"/>
-        </record>
-        <record model="ir.action.act_window.domain"
-            id="act_stock_reservation_done_domain">
-            <field name="name">All</field>
-            <field name="sequence" eval="9999"/>
-            <field name="domain"></field>
-            <field name="act_window" ref="act_stock_reservation"/>
-        </record>
         <record model="ir.model.access" id="access_stock_reservation">
             <field name="model" search="[('model', '=', 'stock.reservation')]"/>
             <field name="perm_read" eval="True"/>
@@ -73,7 +31,7 @@
             <field name="perm_delete" eval="True"/>
         </record>
         <record model="ir.action.act_window" id="act_stock_reservation_type">
-            <field name="name">Stock Reservation by Type</field>
+            <field name="name">Stock Reservation</field>
             <field name="res_model">stock.reservation</field>
         </record>
         <record model="ir.action.act_window.view"
@@ -129,79 +87,6 @@
             <field name="sequence" eval="9999"/>
             <field name="domain"></field>
             <field name="act_window" ref="act_stock_reservation_type"/>
-        </record>
-
-        <record model="ir.action.act_window" id="act_supplier_shipment_form">
-            <field name="name">Supplier Shipments</field>
-            <field name="res_model">stock.shipment.in</field>
-            <field name="domain">[("id", "in", Eval('supplier_shipments'))]</field>
-        </record>
-        <record model="ir.action.keyword"
-                id="act_open_supplier_shipment_keyword1">
-            <field name="keyword">form_relate</field>
-            <field name="model">stock.reservation,-1</field>
-            <field name="action" ref="act_supplier_shipment_form"/>
-        </record>
-
-        <record model="ir.action.act_window"
-            id="act_supplier_return_shipment_form">
-            <field name="name">Supplier Return Shipments</field>
-            <field name="res_model">stock.shipment.in.return</field>
-            <field name="domain">[("id", "in", Eval('supplier_return_shipments'))]</field>
-        </record>
-        <record model="ir.action.keyword"
-                id="act_open_supplier_return_shipment_keyword1">
-            <field name="keyword">form_relate</field>
-            <field name="model">stock.reservation,-1</field>
-            <field name="action" ref="act_supplier_return_shipment_form"/>
-        </record>
-
-        <record model="ir.action.act_window" id="act_customer_shipment_form">
-            <field name="name">Customer Shipments</field>
-            <field name="res_model">stock.shipment.out</field>
-            <field name="domain">[("id", "in", Eval('customer_shipments'))]</field>
-        </record>
-        <record model="ir.action.keyword"
-                id="act_open_customer_shipment_keyword1">
-            <field name="keyword">form_relate</field>
-            <field name="model">stock.reservation,-1</field>
-            <field name="action" ref="act_customer_shipment_form"/>
-        </record>
-
-        <record model="ir.action.act_window"
-            id="act_customer_return_shipment_form">
-            <field name="name">Customer Return Shipments</field>
-            <field name="res_model">stock.shipment.out.return</field>
-            <field name="domain">[("id", "in", Eval('customer_return_shipments'))]</field>
-        </record>
-        <record model="ir.action.keyword"
-                id="act_open_customer_return_shipment_keyword1">
-            <field name="keyword">form_relate</field>
-            <field name="model">stock.reservation,-1</field>
-            <field name="action" ref="act_customer_return_shipment_form"/>
-        </record>
-
-        <record model="ir.action.act_window" id="act_internal_shipment_form">
-            <field name="name">Internal Shipments</field>
-            <field name="res_model">stock.shipment.internal</field>
-            <field name="domain">[("id", "in", Eval('internal_shipments'))]</field>
-        </record>
-        <record model="ir.action.keyword"
-                id="act_open_internal_shipment_keyword1">
-            <field name="keyword">form_relate</field>
-            <field name="model">stock.reservation,-1</field>
-            <field name="action" ref="act_internal_shipment_form"/>
-        </record>
-
-        <record model="ir.action.act_window" id="act_production_form">
-            <field name="name">Production</field>
-            <field name="res_model">production</field>
-            <field name="domain">[("id", "in", Eval('productions'))]</field>
-        </record>
-        <record model="ir.action.keyword" id="act_open_production_keyword1">
-            <field name="keyword">form_relate</field>
-            <field name="model">stock.reservation,-1</field>
-            <field name="action" ref="act_production_form"/>
         </record>
 
         <record model="ir.ui.view" id="move_view_tree">
@@ -260,11 +145,28 @@
             <field name="action" ref="act_reservation_form"/>
         </record>
 
+        <record model="ir.action.act_window.domain"
+                id="act_shipment_out_form_domain_ready_to_assign">
+            <field name="name">Ready to assign</field>
+            <field name="sequence" eval="25"/>
+            <field name="domain">[('state', '=', 'waiting'),('ready_to_assign', '=', True)]</field>
+            <field name="act_window" ref="stock.act_shipment_out_form"/>
+        </record>
+
         <record model="ir.action.keyword" id="act_open_reservation_keyword2">
             <field name="keyword">form_relate</field>
             <field name="model">production,-1</field>
             <field name="action" ref="act_reservation_form"/>
         </record>
+
+        <record model="ir.action.act_window.domain"
+                id="act_production_list_domain_ready_to_assign">
+            <field name="name">Ready to assign</field>
+            <field name="sequence" eval="25"/>
+            <field name="domain">[('state', 'in', ['request', 'draft', 'waiting']),('ready_to_assign', '=', True)]</field>
+            <field name="act_window" ref="production.act_production_list"/>
+        </record>
+
 
         <record model="ir.action.act_window" id="act_reservation_form_sale">
             <field name="name">Reservations</field>
@@ -353,7 +255,7 @@
 
         <!-- Menus -->
 
-          <menuitem action="act_stock_reservation" id="menu_stock_reservation"
+          <menuitem action="act_stock_reservation_type" id="menu_stock_reservation"
               parent="stock.menu_stock" sequence="70" name="Stock Reservation"/>
 
           <record model="ir.ui.menu-res.group"
@@ -361,10 +263,6 @@
             <field name="menu" ref="menu_stock_reservation"/>
             <field name="group" ref="group_stock_reservation"/>
           </record>
-
-        <menuitem parent="menu_stock_reservation" sequence="5"
-            action="act_stock_reservation_type"
-            id="menu_stock_reservation_type"/>
 
         <menuitem parent="menu_stock_reservation" sequence="15"
             action="act_stock_reservation_create"
@@ -393,6 +291,29 @@
             <field name="repeat_missed" eval="False"/>
             <field name="model">stock.reservation</field>
             <field name="function">generate_reservations</field>
+        </record>
+
+        <record model="ir.action.report" id="report_reservation_graph">
+            <field name="name">Graph</field>
+            <field name="model">stock.reservation</field>
+            <field name="report_name">stock.reservation.graph</field>
+        </record>
+
+        <record model="ir.ui.view" id="print_reservation_graph_start_view_form">
+            <field name="model">sock.reservation.print_graph.start</field>
+            <field name="type">form</field>
+            <field name="name">reservation_print_graph_start_form</field>
+        </record>
+
+        <record model="ir.action.wizard" id="print_reservation_graph">
+            <field name="name">Graph</field>
+            <field name="wiz_name">stock.reservation.print_graph</field>
+            <field name="model">stock.reservation</field>
+        </record>
+        <record model="ir.action.keyword" id="print_reservation_graph_keyword">
+            <field name="keyword">form_print</field>
+            <field name="model">stock.reservation,-1</field>
+            <field name="action" ref="print_reservation_graph"/>
         </record>
     </data>
 </tryton>

@@ -6,6 +6,7 @@ from sql.operators import Concat
 from sql.conditionals import Case
 
 from trytond.model import Workflow, ModelSQL, ModelView, fields
+from trytond.report import Report
 from trytond.pyson import Eval, If, In
 from trytond.pool import Pool, PoolMeta
 from trytond.transaction import Transaction
@@ -16,8 +17,10 @@ from trytond.rpc import RPC
 
 
 __all__ = ['Reservation', 'WaitReservation', 'WaitReservationStart',
-    'CreateReservations', 'CreateReservationsStart', 'Move', 'PurchaseLine',
-    'Production', 'Sale', 'ShipmentOut', 'Purchase', 'PurchaseRequest']
+    'CreateReservations', 'CreateReservationsStart',
+    'PrintReservationGraphStart', 'PrintReservationGraph', 'ReservationGraph',
+    'Move', 'PurchaseLine', 'Production', 'Sale', 'ShipmentOut', 'ShipmentIn',
+    'Purchase', 'PurchaseRequest']
 __metaclass__ = PoolMeta
 
 STATES = {
@@ -69,7 +72,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
             (If(Eval('state') == 'draft', ('state', '=', 'draft'), ())),
             ('product', '=', Eval('product', -1)),
             ('from_location', '=', Eval('location', -1)),
-            ])
+            ],
+        ondelete='CASCADE')
     destination_document = fields.Function(fields.Reference('Destination',
         selection='get_destination_document_selection'),
         'get_destination_document', searcher='search_destination_document')
@@ -95,7 +99,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
             (If(Eval('state') == 'draft', ('state', '=', 'draft'), ())),
             ('product', '=', Eval('product', -1)),
             ('to_location', '=', Eval('location', -1)),
-            ])
+            ],
+        ondelete='CASCADE')
     source_planned_date = fields.Function(fields.Date('Planned Date',
             states={
                 'invisible': Eval('get_from_stock', False),
@@ -262,6 +267,10 @@ class Reservation(Workflow, ModelSQL, ModelView):
             res['uom.rec_name'] = self.product.default_uom.rec_name
             res['unit_digits'] = self.product.default_uom.digits
         return res
+
+    def get_rec_name(self, name):
+        return "%d %s %s @ %s" % (self.quantity, self.uom.symbol,
+            self.product.name, self.location.rec_name)
 
     @classmethod
     def _get_source_document(cls):
@@ -557,7 +566,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         for reservation in reservations:
             #TODO: Determine when to split moves
 #           reservation.split_moves('done')
-            if reservation.source.state == 'assigned':
+            if reservation.source and reservation.source.state == 'assigned':
                 to_do.append(reservation.source)
             if reservation.destination.state == 'draft':
                 to_assign.append(reservation.destination)
@@ -1029,6 +1038,136 @@ class CreateReservations(Wizard):
         return 'end'
 
 
+class PrintReservationGraphStart(ModelView):
+    'Print Reserve Graph'
+    __name__ = 'stock.reservation.print_graph.start'
+    level = fields.Integer('Level', required=True)
+
+    @staticmethod
+    def default_level():
+        return 1
+
+
+class PrintReservationGraph(Wizard):
+    __name__ = 'stock.reservation.print_graph'
+
+    start = StateView('stock.reservation.print_graph.start',
+        'stock_reservation.print_reservation_graph_start_view_form', [
+            Button('Cancel', 'end', 'tryton-cancel'),
+            Button('Print', 'print_', 'tryton-ok', default=True),
+            ])
+    print_ = StateAction('stock_reservation.report_reservation_graph')
+
+    def transition_print_(self):
+        return 'end'
+
+    def do_print_(self, action):
+        return action, {
+            'id': Transaction().context.get('active_id'),
+            'ids': Transaction().context.get('active_ids'),
+            'level': self.start.level,
+            }
+
+
+class ReservationGraph(Report):
+    __name__ = 'stock.reservation.graph'
+
+    @classmethod
+    def execute(cls, ids, data):
+        import pydot
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        ActionReport = pool.get('ir.action.report')
+
+        action_report_ids = ActionReport.search([
+            ('report_name', '=', cls.__name__)
+            ])
+        if not action_report_ids:
+            raise Exception('Error', 'Report (%s) not find!' % cls.__name__)
+        action_report = ActionReport(action_report_ids[0])
+
+        reserves = Reservation.browse(ids)
+
+        graph = pydot.Dot(fontsize="8")
+        graph.set('center', '1')
+        graph.set('ratio', 'auto')
+        cls.fill_graph(reserves, graph, level=data['level'])
+        data = graph.create(prog='dot', format='png')
+        return ('png', buffer(data), False, action_report.name)
+
+    @classmethod
+    def fill_graph(cls, reservations, graph, level=1, edges_data=None):
+        '''
+        Fills a pydot graph with a reserves.
+        '''
+        import pydot
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        if not edges_data:
+            edges_data = {}
+
+        if level > 0:
+            sources = set()
+            destinations = set()
+            for reservation in reservations:
+                if reservation.source:
+                    move = reservation.source
+                    sources.add(move)
+                    edges_data[move] = reservation
+                    if move.production_output:
+                        for input in move.production_output.inputs:
+                            sources.add(input)
+                            edges_data[input] = reservation
+                if reservation.destination:
+                    move = reservation.destination
+                    destinations.add(move)
+                    edges_data[move] = reservation
+                    if move.production_input:
+                        for output in move.production_input.outputs:
+                            sources.add(output)
+                            edges_data[output] = reservation
+            sub_reserves = Reservation.search([
+                    ['OR',
+                        ('source', 'in', list(sources)),
+                        ('destination', 'in', list(destinations)),
+                        ],
+                    ])
+            if sub_reserves:
+                cls.fill_graph(sub_reserves, graph, level - 1, edges_data)
+
+        for reserve in reservations:
+            label = '"{' + reserve.rec_name + '\\n'
+            #    label += '|'
+            # TODO: Determine which info to show on lables.
+#            label += reserve.reserve_type
+#            label += '\l'
+#            if reserve.source_document:
+#                label += reserve.source_document.rec_name
+#                label += '\l'
+#            if reserve.destination_document:
+#                label += reserve.destination_document.rec_name
+#                label += '\l'
+            label += '}"'
+            node_name = str(reserve.id)
+            node = pydot.Node(node_name, shape='record', label=label)
+            graph.add_node(node)
+
+            if reserve.source in edges_data:
+                edge = pydot.Edge(
+                    str(edges_data[reserve.source].id),
+                    str(reserve.id),
+                    )
+                graph.add_edge(edge)
+
+            if reserve.destination in edges_data:
+                edge = pydot.Edge(
+                    str(edges_data[reserve.destination].id),
+                    str(reserve.id),
+                    )
+                graph.add_edge(edge)
+
+
 class Move:
     __name__ = 'stock.move'
 
@@ -1051,6 +1190,18 @@ class Move:
             'Incompatible Reserved Quantity', digits=(16,
                 Eval('unit_digits', 2)), depends=['unit_digits']),
         'get_incompatible_reserved_quantity')
+
+    @classmethod
+    def __setup__(cls):
+        super(Move, cls).__setup__()
+        cls._error_messages.update({
+            'write_reserved_move': 'The stock moves have related reserves and'
+                ' they will be deleted.',
+            'delete_reserved_move': 'The stock moves have related reserves and'
+                ' they will be also deleted.',
+            })
+        cls.reserve_non_writable_fields = ('quantity', 'from_location',
+                        'to_location')
 
     @classmethod
     def get_reserved(cls, moves, name):
@@ -1155,11 +1306,16 @@ class Move:
 
         move_ids = [m.id for m in moves]
         reservations = Reservation.search([
-                ('state', '=', 'waiting'),
+                ('state', 'in', ['draft', 'waiting']),
                 ('source', 'in', move_ids),
                 ])
         if reservations:
-            Reservation.do(reservations)
+            Reservation.write(reservations, {
+                    'get_from_stock': True,
+                    'source': None,
+                    'source_document': None,
+                    })
+
         reservations = Reservation.search([
                 ('state', '=', 'draft'),
                 ('source', 'in', move_ids),
@@ -1193,6 +1349,39 @@ class Move:
                     'failed_date': datetime.now(),
                     })
         Reservation.fail(source_reservations + destination_reservations)
+
+    @classmethod
+    def write(cls, moves, value):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        if any(field in value for field in cls.reserve_non_writable_fields):
+            reserves = Reservation.search([
+                        ['OR',
+                            ('source', 'in', moves),
+                            ('destination', 'in', moves),
+                            ]
+                        ])
+            if reserves:
+                moves_id = ','.join(str(m) for m in moves)
+                cls.raise_user_warning('%s.write' % moves_id,
+                    'write_reserved_move')
+                Reservation.delete(reserves)
+        super(Move, cls).write(moves, value)
+
+    @classmethod
+    def delete(cls, moves):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        if Reservation.search([
+                    ['OR',
+                        ('source', 'in', moves),
+                        ('destination', 'in', moves),
+                        ]
+                    ]):
+            moves_id = ','.join(str(m) for m in moves)
+            cls.raise_user_warning('%s.delete' % moves_id,
+                'delete_reserved_move')
+        super(Move, cls).delete(moves)
 
 
 class PurchaseLine:
@@ -1293,6 +1482,87 @@ class ReserveRelatedMixin:
 class Production(ReserveRelatedMixin):
     __name__ = 'production'
 
+    ready_to_assign = fields.Function(fields.Boolean('Ready to assign'),
+        'get_ready_to_assign', searcher='search_ready_to_assign')
+
+    @classmethod
+    def get_ready_to_assign(cls, productions, name):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        res = dict.fromkeys([p.id for p in productions], False)
+
+        inputs = [m for m in p.inputs for p in productions]
+        productions_inputs = []
+        for production in productions:
+            product_quantities = {}
+            for input in production.inputs:
+                qty = product_quantities.setdefault(input.product, 0.0)
+                product_quantities[input.product] = (qty +
+                    input.internal_quantity)
+            productions_inputs[production] = product_quantities
+
+        reserves = Reservation.search([
+                ('destination', 'in', inputs)
+                ])
+
+        for reserve in reserves:
+            if (not reserve.destination and not
+                    reserve.destination.production_input):
+                continue
+            if reserve.reserve_type == 'in_stock':
+                production = reserve.destination.production_input
+                product_quantities = productions_inputs[production]
+                qty = product_quantities.setdefault(reserve.product, 0.0)
+                qty -= reserve.internal_quantity
+                if qty <= 0.0:
+                    del product_quantities[reserve.product]
+                else:
+                    product_quantities[reserve.product] = qty
+                productions_inputs[production] = product_quantities
+
+        for production, value in productions_inputs.iteritems():
+            if not value:
+                res[production.id] = True
+        return res
+
+    @classmethod
+    def search_ready_to_assign(cls, name, clause):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        reserves = Reservation.search([
+                ('reserve_type', '=', 'in_stock'),
+                ])
+
+        productions_inputs = {}
+        productions = set()
+        for reserve in reserves:
+            production = (reserve.destination and
+                reserve.destination.production_input)
+            if not production:
+                continue
+            if not production in productions_inputs:
+                product_quantities = {}
+                for input in production.inputs:
+                    qty = product_quantities.setdefault(input.product, 0.0)
+                    product_quantities[input.product] = (qty +
+                        input.internal_quantity)
+                productions_inputs[production] = product_quantities
+            product_quantities = productions_inputs[production]
+            qty = product_quantities.setdefault(reserve.product, 0.0)
+            qty -= reserve.internal_quantity
+            if qty <= 0.0:
+                del product_quantities[reserve.product]
+            else:
+                product_quantities[reserve.product] = qty
+            if not product_quantities:
+                productions.add(production)
+            productions_inputs[production] = product_quantities
+
+        operator = 'in' if clause[2] else 'not in'
+        return [('id', operator, [x.id for x in productions])]
+
 
 class Sale(ReserveRelatedMixin):
     __name__ = 'sale.sale'
@@ -1387,6 +1657,73 @@ class Sale(ReserveRelatedMixin):
 
 class ShipmentOut(ReserveRelatedMixin):
     __name__ = 'stock.shipment.out'
+
+    ready_to_assign = fields.Function(fields.Boolean('Ready to assign'),
+        'get_ready_to_assign', searcher='search_ready_to_assign')
+
+    @classmethod
+    def get_ready_to_assign(cls, shipments, name):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        res = dict.fromkeys([s.id for s in shipments], False)
+
+        inventory_moves = [m for m in s.inventory_moves for s in shipments]
+
+        reserves = Reservation.search([
+                ('destination', 'in', inventory_moves)
+                ])
+
+        for reserve in reserves:
+            if reserve.reserve_type == 'in_stock':
+                res[reserve.destination.shipment.id] = True
+        return res
+
+    @classmethod
+    def search_ready_to_assign(cls, name, clause):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        reserves = Reservation.search([
+                ('reserve_type', '=', 'in_stock'),
+                ])
+
+        shipments = set()
+        for reserve in reserves:
+            shipment = reserve.destination_document or (reserve.destination
+                and reserve.destination.shipment)
+            if isinstance(shipment, cls):
+                shipments.add(shipment)
+
+        operator = 'in' if clause[2] else 'not in'
+        return [('id', operator, [x.id for x in shipments])]
+
+
+class ShipmentIn:
+    __name__ = 'stock.shipment.in'
+
+    @classmethod
+    def create_inventory_moves(cls, shipments):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        super(ShipmentIn, cls).create_inventory_moves(shipments)
+        for shipment in shipments:
+            for inventory_move in shipment.inventory_moves:
+                for incoming_move in shipment.incoming_moves:
+                    if (inventory_move.product == incoming_move.product and
+                            (inventory_move.internal_quantity ==
+                                incoming_move.internal_quantity)):
+                            if isinstance(incoming_move.origin, PurchaseLine):
+                                reserves = Reservation.search([
+                                        ('state', 'in', ['draft', 'waiting']),
+                                        ('source_document', '=',
+                                            str(incoming_move.origin)),
+                                        ])
+                                if reserves:
+                                    Reservation.write(reserves, {
+                                            'source': inventory_move.id,
+                                            })
+                            break
 
 
 class Purchase:
@@ -1511,3 +1848,19 @@ class PurchaseRequest:
             for request in sale.purchase_requests:
                 requests.add(request.id)
         return [('id', 'in', requests)]
+
+    @classmethod
+    def write(cls, requests, value):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        super(PurchaseRequest, cls).write(requests, value)
+        if 'purchase_line' in value:
+            reserves = Reservation.search([
+                    ('state', 'in', ['draft', 'waiting']),
+                    ('source_document', 'in', [str(r) for r in requests]),
+                    ])
+            if reserves:
+                Reservation.write(reserves, {
+                        'source_document': ('purchase.line,%d' %
+                            value.get('purchase_line')),
+                        })
