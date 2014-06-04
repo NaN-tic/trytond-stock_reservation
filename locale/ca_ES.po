@@ -2,6 +2,16 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=utf-8\n"
 
+msgctxt "error:stock.move:"
+msgid "The stock moves have related reserves and they will be also deleted."
+msgstr ""
+"Els moviments d'estoc tenen reserves relacionades i també s'eliminaran."
+
+msgctxt "error:stock.move:"
+msgid "The stock moves have related reserves and they will be deleted."
+msgstr ""
+"Els moviments d'estoc tenen reserves relacionades que serán eliminades."
+
 msgctxt "error:stock.reservation:"
 msgid "Reservation \"%s\" overpasses Move \"%s\" quantity."
 msgstr ""
@@ -15,6 +25,10 @@ msgid ""
 msgstr ""
 "No es pot eliminar la reserva d'estoc \"%s\" perquè no esta en estat "
 "esborrany."
+
+msgctxt "field:production,ready_to_assign:"
+msgid "Ready to assign"
+msgstr "Preperat per assignar"
 
 msgctxt "field:production,reserve_day_difference:"
 msgid "Day Difference"
@@ -33,6 +47,10 @@ msgid "Purchase Date"
 msgstr "Data de compra"
 
 msgctxt "field:purchase.purchase,sales:"
+msgid "Sales"
+msgstr "Vendes"
+
+msgctxt "field:purchase.request,sales:"
 msgid "Sales"
 msgstr "Vendes"
 
@@ -240,6 +258,18 @@ msgctxt "field:stock.reservation,write_uid:"
 msgid "Write User"
 msgstr "Usuari modificació"
 
+msgctxt "field:stock.reservation.print_graph.start,id:"
+msgid "ID"
+msgstr "Identificador"
+
+msgctxt "field:stock.reservation.print_graph.start,level:"
+msgid "Level"
+msgstr "Nivell"
+
+msgctxt "field:stock.shipment.out,ready_to_assign:"
+msgid "Ready to assign"
+msgstr "Preperat per assignar"
+
 msgctxt "field:stock.shipment.out,reserve_day_difference:"
 msgid "Day Difference"
 msgstr "Dies de diferencia"
@@ -312,10 +342,6 @@ msgctxt "model:ir.action,name:act_sale_from_requests"
 msgid "Sales"
 msgstr "Vendes"
 
-msgctxt "model:ir.action,name:act_stock_reservation"
-msgid "Stock Reservation"
-msgstr "Reserva d'estoc"
-
 msgctxt "model:ir.action,name:act_stock_reservation_create"
 msgid "Create Stock Reservations"
 msgstr "Crear Reserves d'estoc"
@@ -332,24 +358,27 @@ msgctxt "model:ir.action,name:act_supplier_shipment_form"
 msgid "Supplier Shipments"
 msgstr "Albarans proveïdors"
 
+msgctxt "model:ir.action,name:print_reservation_graph"
+msgid "Graph"
+msgstr "Gràfica"
+
+msgctxt "model:ir.action,name:report_reservation_graph"
+msgid "Graph"
+msgstr "Gràfica"
+
 msgctxt "model:ir.action,name:wizard_wait_reservation"
 msgid "Wait Reservation"
 msgstr "Reserva en espera"
 
 msgctxt ""
-"model:ir.action.act_window.domain,name:act_stock_reservation_done_domain"
-msgid "All"
-msgstr "Totes"
+"model:ir.action.act_window.domain,name:act_production_list_domain_ready_to_assign"
+msgid "Ready to assign"
+msgstr "Preperat per assignar"
 
 msgctxt ""
-"model:ir.action.act_window.domain,name:act_stock_reservation_draft_domain"
-msgid "Draft"
-msgstr "Esborrany"
-
-msgctxt ""
-"model:ir.action.act_window.domain,name:act_stock_reservation_failed_domain"
-msgid "Failed"
-msgstr "Fracassat"
+"model:ir.action.act_window.domain,name:act_shipment_out_form_domain_ready_to_assign"
+msgid "Ready to assign"
+msgstr "Preperat per assignar"
 
 msgctxt ""
 "model:ir.action.act_window.domain,name:act_stock_reservation_type_all_domain"
@@ -381,11 +410,6 @@ msgctxt ""
 msgid "To be Assigned"
 msgstr "Pendent d'assignar"
 
-msgctxt ""
-"model:ir.action.act_window.domain,name:act_stock_reservation_waiting_domain"
-msgid "Waiting"
-msgstr "Esperant"
-
 msgctxt "model:ir.cron,name:cron_generate_request"
 msgid "Generate Stock Reservation"
 msgstr "Generar Reserves d'estoc"
@@ -397,10 +421,6 @@ msgstr "Reserva d'estoc"
 msgctxt "model:ir.ui.menu,name:menu_stock_reservation_create"
 msgid "Create Stock Reservations"
 msgstr "Crear Reserves d'estoc"
-
-msgctxt "model:ir.ui.menu,name:menu_stock_reservation_type"
-msgid "Stock Reservation by Type"
-msgstr "Reserves d'estoc per tipus"
 
 msgctxt "model:res.group,name:group_stock_reservation"
 msgid "Stock Reservation"
@@ -417,6 +437,10 @@ msgstr "Crear Reserves"
 msgctxt "model:stock.reservation,name:"
 msgid "Stock Reservation"
 msgstr "Reserva d'estoc"
+
+msgctxt "model:stock.reservation.print_graph.start,name:"
+msgid "Print Reserve Graph"
+msgstr "Imprimir gràfic de reserves"
 
 msgctxt "model:stock.wait_reservation.start,name:"
 msgid "Wait Reservations"
@@ -569,6 +593,14 @@ msgstr "Crear"
 msgctxt "wizard_button:stock.create_reservations,start,end:"
 msgid "Cancel"
 msgstr "Cancel·la"
+
+msgctxt "wizard_button:stock.reservation.print_graph,start,end:"
+msgid "Cancel"
+msgstr "Cancel·lat"
+
+msgctxt "wizard_button:stock.reservation.print_graph,start,print_:"
+msgid "Print"
+msgstr "Imprimir"
 
 msgctxt "wizard_button:stock.wait_reservation,start,end:"
 msgid "Cancel"
