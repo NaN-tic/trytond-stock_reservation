@@ -172,7 +172,7 @@ Make a reservation::
     >>> incoming_move.product = product
     >>> incoming_move.uom = unit
     >>> incoming_move.quantity = 1
-    >>> incoming_move.from_location = supplier_loc
+    >>> incoming_move.from_location = input_loc
     >>> incoming_move.to_location = storage_loc
     >>> incoming_move.planned_date = today
     >>> incoming_move.effective_date = today
@@ -185,7 +185,7 @@ Make a reservation::
     >>> outgoing_move.uom = unit
     >>> outgoing_move.quantity = 1
     >>> outgoing_move.from_location = storage_loc
-    >>> outgoing_move.to_location = customer_loc
+    >>> outgoing_move.to_location = output_loc
     >>> outgoing_move.planned_date = today
     >>> outgoing_move.effective_date = today
     >>> outgoing_move.company = company
@@ -404,7 +404,7 @@ Recieve the shipment and check reserve assigned to shipment::
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reserves = StockReservation.find([('state', '=', 'draft')])
-    >>> stock_reservation, reservation, exceding_reservation = reserves
+    >>> stock_reservation, _, reservation, exceding_reservation = reserves
     >>> stock_reservation.reserve_type == 'in_stock'
     True
     >>> stock_reservation.location == input_loc

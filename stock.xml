@@ -300,7 +300,7 @@
         </record>
 
         <record model="ir.ui.view" id="print_reservation_graph_start_view_form">
-            <field name="model">sock.reservation.print_graph.start</field>
+            <field name="model">stock.reservation.print_graph.start</field>
             <field name="type">form</field>
             <field name="name">reservation_print_graph_start_form</field>
         </record>

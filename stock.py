@@ -41,18 +41,18 @@ class Reservation(Workflow, ModelSQL, ModelView):
             ])
     product = fields.Many2One("product.product", "Product", required=True,
         select=True, states=STATES,
-        on_change=['product', 'uom'],
-        domain=[('type', '!=', 'service')],
+        domain=[
+            ('type', '!=', 'service'),
+            ],
         depends=DEPENDS)
     uom = fields.Many2One("product.uom", "Uom", required=True, states=STATES,
         depends=DEPENDS)
-    unit_digits = fields.Function(fields.Integer('Unit Digits',
-        on_change_with=['uom']), 'on_change_with_unit_digits')
+    unit_digits = fields.Function(fields.Integer('Unit Digits'),
+        'on_change_with_unit_digits')
     quantity = fields.Float("Quantity", required=True,
         digits=(16, Eval('unit_digits', 2)), states=STATES,
         depends=['state', 'unit_digits'])
     internal_quantity = fields.Function(fields.Float('Internal Quantity',
-            on_change_with=['product', 'quantity', 'uom'],
             digits=(16, Eval('unit_digits', 2)), depends=['unit_digits'],
             help='Quantity in product default UOM'),
         'on_change_with_internal_quantity')
@@ -77,14 +77,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
     destination_document = fields.Function(fields.Reference('Destination',
         selection='get_destination_document_selection'),
         'get_destination_document', searcher='search_destination_document')
-    destination_planned_date = fields.Function(fields.Date('Planned Date',
-            on_change_with=['destination']),
+    destination_planned_date = fields.Function(fields.Date('Planned Date'),
         'get_move_field')
     destination_from_location = fields.Function(fields.Many2One(
-            'stock.location', 'From Location', on_change_with=['destination']),
+            'stock.location', 'From Location'),
         'get_move_field')
     destination_to_location = fields.Function(fields.Many2One(
-            'stock.location', 'To Location', on_change_with=['destination']),
+            'stock.location', 'To Location'),
         'get_move_field')
     get_from_stock = fields.Boolean('Get from stock')
     source = fields.Many2One('stock.move', 'Source Move', select=True,
@@ -105,23 +104,22 @@ class Reservation(Workflow, ModelSQL, ModelView):
             states={
                 'invisible': Eval('get_from_stock', False),
                 },
-            depends=['get_from_stock'],
-            on_change_with=['source', 'source_document']),
+            depends=['get_from_stock']),
         'on_change_with_source_planned_date')
     source_from_location = fields.Function(fields.Many2One('stock.location',
             'From Location',
             states={
                 'invisible': Eval('get_from_stock', False),
                 },
-            depends=['get_from_stock'],
-            on_change_with=['source']), 'get_move_field')
+            depends=['get_from_stock']),
+        'get_move_field')
     source_to_location = fields.Function(fields.Many2One('stock.location',
             'To Location',
             states={
                 'invisible': Eval('get_from_stock', False),
                 },
-            depends=['get_from_stock'],
-            on_change_with=['source']), 'get_move_field')
+            depends=['get_from_stock']),
+        'get_move_field')
     failed_reason = fields.Selection([
             (None, ''),
             ('source_canceled', 'Source Move was canceled'),
@@ -212,11 +210,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
     def default_unit_digits():
         return 2
 
+    @fields.depends('uom')
     def on_change_with_unit_digits(self, name=None):
         if self.uom:
             return self.uom.digits
         return 2
 
+    @fields.depends('uom', 'product', 'quantity')
     def on_change_with_internal_quantity(self, name=None):
         pool = Pool()
         Uom = pool.get('product.uom')
@@ -234,15 +234,19 @@ class Reservation(Workflow, ModelSQL, ModelView):
             return res.id
         return res
 
+    @fields.depends('destination')
     def on_change_with_destination_planned_date(self, name=None):
         return self.get_move_field('destination_planned_date')
 
+    @fields.depends('destination')
     def on_change_with_destination_to_location(self, name=None):
         return self.get_move_field('destination_to_location')
 
+    @fields.depends('destination')
     def on_change_with_destination_from_location(self, name=None):
         return self.get_move_field('destination_from_location')
 
+    @fields.depends('source', 'source_document')
     def on_change_with_source_planned_date(self, name=None):
         pool = Pool()
         PurchaseRequest = pool.get('purchase.request')
@@ -254,12 +258,15 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 return self.source_document.supply_date
         return self.get_move_field('source_planned_date')
 
+    @fields.depends('source')
     def on_change_with_source_to_location(self, name=None):
         return self.get_move_field('source_to_location')
 
+    @fields.depends('source')
     def on_change_with_source_from_location(self, name=None):
         return self.get_move_field('source_from_location')
 
+    @fields.depends('product')
     def on_change_product(self):
         res = {}
         if self.product:
@@ -1351,22 +1358,25 @@ class Move:
         Reservation.fail(source_reservations + destination_reservations)
 
     @classmethod
-    def write(cls, moves, value):
+    def write(cls, *args):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
-        if any(field in value for field in cls.reserve_non_writable_fields):
-            reserves = Reservation.search([
-                        ['OR',
-                            ('source', 'in', moves),
-                            ('destination', 'in', moves),
-                            ]
-                        ])
-            if reserves:
-                moves_id = ','.join(str(m) for m in moves)
-                cls.raise_user_warning('%s.write' % moves_id,
-                    'write_reserved_move')
-                Reservation.delete(reserves)
-        super(Move, cls).write(moves, value)
+        actions = iter(args)
+        for moves, value in zip(actions, actions):
+            if any(field in value for field in
+                    cls.reserve_non_writable_fields):
+                reserves = Reservation.search([
+                            ['OR',
+                                ('source', 'in', moves),
+                                ('destination', 'in', moves),
+                                ]
+                            ])
+                if reserves:
+                    moves_id = ','.join(str(m) for m in moves)
+                    cls.raise_user_warning('%s.write' % moves_id,
+                        'write_reserved_move')
+                    Reservation.delete(reserves)
+        super(Move, cls).write(*args)
 
     @classmethod
     def delete(cls, moves):
@@ -1850,17 +1860,19 @@ class PurchaseRequest:
         return [('id', 'in', requests)]
 
     @classmethod
-    def write(cls, requests, value):
+    def write(cls, *args):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
-        super(PurchaseRequest, cls).write(requests, value)
-        if 'purchase_line' in value:
-            reserves = Reservation.search([
-                    ('state', 'in', ['draft', 'waiting']),
-                    ('source_document', 'in', [str(r) for r in requests]),
-                    ])
-            if reserves:
-                Reservation.write(reserves, {
-                        'source_document': ('purchase.line,%d' %
-                            value.get('purchase_line')),
-                        })
+        actions = iter(args)
+        super(PurchaseRequest, cls).write(*args)
+        for requests, value in zip(actions, actions):
+            if 'purchase_line' in value:
+                reserves = Reservation.search([
+                        ('state', 'in', ['draft', 'waiting']),
+                        ('source_document', 'in', [str(r) for r in requests]),
+                        ])
+                if reserves:
+                    Reservation.write(reserves, {
+                            'source_document': ('purchase.line,%d' %
+                                value.get('purchase_line')),
+                            })
