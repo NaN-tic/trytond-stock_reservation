@@ -1400,7 +1400,7 @@ class PurchaseLine:
     purchase_date = fields.Function(fields.Date('Purchase Date'),
         'get_purchase_date')
 
-    def get_purchase_date(self):
+    def get_purchase_date(self, name):
         if self.purchase:
             return self.purchase.purchase_date
 
