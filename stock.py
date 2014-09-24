@@ -1503,7 +1503,7 @@ class Production(ReserveRelatedMixin):
         res = dict.fromkeys([p.id for p in productions], False)
 
         inputs = [m for m in p.inputs for p in productions]
-        productions_inputs = []
+        productions_inputs = {}
         for production in productions:
             product_quantities = {}
             for input in production.inputs:
