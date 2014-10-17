@@ -877,15 +877,9 @@ class Reservation(Workflow, ModelSQL, ModelView):
         """
         pool = Pool()
         PurchaseLine = pool.get('purchase.line')
-        requests = PurchaseLine.search([
-                ('purchase.state', 'in', ['draft', 'quotation']),
-                ('product.type', '=', 'goods'),
-                ('product.consumable', '=', False),
-                ],
-            order=[
-                ('purchase_date', 'ASC'),
-                ])
-        pending = PurchaseLine.search([
+        # Must process confirmed purchases first because we want them to be
+        # assigned before the ones in quotation or draft state
+        confirmed = PurchaseLine.search([
                 ('purchase.state', '=', ['confirmed']),
                 ('product.type', '=', 'goods'),
                 ('product.consumable', '=', False),
@@ -893,11 +887,20 @@ class Reservation(Workflow, ModelSQL, ModelView):
             order=[
                 ('purchase_date', 'ASC'),
                 ])
-        for line in pending:
+        lines = []
+        for line in confirmed:
             #TODO: Check if line is partialy delivered.
             if any(move.state == 'draft'for move in line.moves):
-                requests.append(line)
-        return requests
+                lines.append(line)
+        lines += PurchaseLine.search([
+                ('purchase.state', 'in', ['draft', 'quotation']),
+                ('product.type', '=', 'goods'),
+                ('product.consumable', '=', False),
+                ],
+            order=[
+                ('purchase_date', 'ASC'),
+                ])
+        return lines
 
     @classmethod
     def get_destination_moves(cls):
@@ -920,7 +923,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
     @classmethod
     def get_source_moves(cls, move=None):
         """
-        Returns matchin source moves for a given destination move
+        Returns matching source moves for a given destination move
         If move is None returns all elegible source moves
         """
         pool = Pool()
