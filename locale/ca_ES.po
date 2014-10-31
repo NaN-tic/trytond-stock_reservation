@@ -294,22 +294,6 @@ msgctxt "help:stock.reservation,internal_quantity:"
 msgid "Quantity in product default UOM"
 msgstr "Quantitat en la UdM per defecte del producte"
 
-msgctxt "model:ir.action,name:act_customer_return_shipment_form"
-msgid "Customer Return Shipments"
-msgstr "Devolucións de client"
-
-msgctxt "model:ir.action,name:act_customer_shipment_form"
-msgid "Customer Shipments"
-msgstr "Albarans client"
-
-msgctxt "model:ir.action,name:act_internal_shipment_form"
-msgid "Internal Shipments"
-msgstr "Albarans interns"
-
-msgctxt "model:ir.action,name:act_production_form"
-msgid "Production"
-msgstr "Producció"
-
 msgctxt "model:ir.action,name:act_purchase_from_sales"
 msgid "Purchases"
 msgstr "Compres"
@@ -318,7 +302,7 @@ msgctxt "model:ir.action,name:act_requests_from_sales"
 msgid "Purchase Requests"
 msgstr "Sol·licituds de compra"
 
-msgctxt "model:ir.action,name:act_reservation_form"
+msgctxt "model:ir.action,name:act_reservation_form_production"
 msgid "Reservations"
 msgstr "Reserves"
 
@@ -331,6 +315,10 @@ msgid "Reservations"
 msgstr "Reserves"
 
 msgctxt "model:ir.action,name:act_reservation_form_sale"
+msgid "Reservations"
+msgstr "Reserves"
+
+msgctxt "model:ir.action,name:act_reservation_form_shipment_out"
 msgid "Reservations"
 msgstr "Reserves"
 
@@ -347,16 +335,8 @@ msgid "Create Stock Reservations"
 msgstr "Crear Reserves d'estoc"
 
 msgctxt "model:ir.action,name:act_stock_reservation_type"
-msgid "Stock Reservation by Type"
+msgid "Stock Reservation"
 msgstr "Reserves d'estoc per tipus"
-
-msgctxt "model:ir.action,name:act_supplier_return_shipment_form"
-msgid "Supplier Return Shipments"
-msgstr "Devolucións de proveïdors"
-
-msgctxt "model:ir.action,name:act_supplier_shipment_form"
-msgid "Supplier Shipments"
-msgstr "Albarans proveïdors"
 
 msgctxt "model:ir.action,name:print_reservation_graph"
 msgid "Graph"
@@ -557,6 +537,10 @@ msgstr "Crear Reserves d'estoc"
 msgctxt "view:stock.create_reservations.start:"
 msgid "Create Stock Reservations?"
 msgstr "Crear Reserves d'estoc?"
+
+msgctxt "view:stock.reservation.print_graph.start:"
+msgid "Print Reserve Graph"
+msgstr "Imprimir gràfic de reserves"
 
 msgctxt "view:stock.reservation:"
 msgid "Destination Move"

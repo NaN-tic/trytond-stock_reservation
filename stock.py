@@ -5,7 +5,7 @@ from sql import Literal, Cast
 from sql.operators import Concat
 from sql.conditionals import Case
 
-from trytond.model import Workflow, ModelSQL, ModelView, fields
+from trytond.model import Workflow, Model, ModelSQL, ModelView, fields
 from trytond.report import Report
 from trytond.pyson import Eval, If, In
 from trytond.pool import Pool, PoolMeta
@@ -864,9 +864,12 @@ class Reservation(Workflow, ModelSQL, ModelView):
         """
         pool = Pool()
         Request = pool.get('purchase.request')
-        return Request.search([
-                ('purchase_line', '=', None),
-                ], order=[
+        domain = [
+            ('purchase_line', '=', None),
+            ]
+        if hasattr(Request, 'customer'):
+            domain.append(('customer', '=', None))
+        return Request.search(domain, order=[
                 ('purchase_date', 'ASC'),
                 ])
 
@@ -879,25 +882,31 @@ class Reservation(Workflow, ModelSQL, ModelView):
         PurchaseLine = pool.get('purchase.line')
         # Must process confirmed purchases first because we want them to be
         # assigned before the ones in quotation or draft state
-        confirmed = PurchaseLine.search([
-                ('purchase.state', '=', ['confirmed']),
-                ('product.type', '=', 'goods'),
-                ('product.consumable', '=', False),
-                ],
-            order=[
+        confirmed_domain = [
+            ('purchase.state', '=', ['confirmed']),
+            ('product.type', '=', 'goods'),
+            ('product.consumable', '=', False),
+            ]
+        if hasattr(Purchase, 'customer'):
+            confirmed_domain.append(('purchase.customer', '=', None))
+        confirmed = PurchaseLine.search(confirmed_domain, order=[
                 ('purchase_date', 'ASC'),
                 ])
+
         lines = []
         for line in confirmed:
-            #TODO: Check if line is partialy delivered.
+            # TODO: Check if line is partialy delivered.
             if any(move.state == 'draft'for move in line.moves):
                 lines.append(line)
-        lines += PurchaseLine.search([
-                ('purchase.state', 'in', ['draft', 'quotation']),
-                ('product.type', '=', 'goods'),
-                ('product.consumable', '=', False),
-                ],
-            order=[
+
+        draft_quotation_domain = [
+            ('purchase.state', 'in', ['draft', 'quotation']),
+            ('product.type', '=', 'goods'),
+            ('product.consumable', '=', False),
+            ]
+        if hasattr(Purchase, 'customer'):
+            draft_quotation_domain.append(('purchase.customer', '=', None))
+        lines += PurchaseLine.search(draft_quotation_domain, order=[
                 ('purchase_date', 'ASC'),
                 ])
         return lines
@@ -915,9 +924,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 ('to_location.type', 'in', ['storage', 'production']),
                 # TODO: ('product.consumable', '=', False),
                 ('product.template.type', '!=', 'service'),
+                ['OR',
+                    ('shipment', '=', None),
+                    ('shipment', 'not like', 'stock.shipment.drop,%'),
+                    ]
                 ], order=[
                 ('planned_date', 'ASC'),
-                ('internal_quantity', 'DESC'),
+                ('create_date', 'ASC'),
                 ])
 
     @classmethod
@@ -944,6 +957,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     # TODO: ('product.consumable', '=', False),
                     ('shipment', 'not like', 'stock.shipment.out,%'),
                     ('shipment', 'not like', 'stock.shipment.in.return,%'),
+                    ('shipment', 'not like', 'stock.shipment.drop,%'),
                     ])
         return Move.search(domain, order=[
                 ('planned_date', 'ASC'),
@@ -1185,11 +1199,6 @@ class Move:
         'Source Reserves')
     reserves_destination = fields.One2Many('stock.reservation', 'destination',
         'Destination Reserves')
-    reserved = fields.Function(fields.Boolean('Reserved'), 'get_reserved')
-    #TODO: Aquest camp es cert si el moviment esta en alguna reserva, pero el
-    # proces de reserves crea reserves per tots els moviments.
-    # Potser s'ha de validar que la reserva estigui en waiting (o alguna altra
-    # condicio).
     reserved_quantity = fields.Function(fields.Float('Reserved Quantity',
             digits=(16, Eval('unit_digits', 2)), depends=['unit_digits']),
         'get_reserved_quantity')
@@ -1212,31 +1221,6 @@ class Move:
             })
         cls.reserve_non_writable_fields = ('quantity', 'from_location',
                         'to_location')
-
-    @classmethod
-    def get_reserved(cls, moves, name):
-        pool = Pool()
-        Reservation = pool.get('stock.reservation')
-        reservation = Reservation.__table__()
-        cursor = Transaction().cursor
-        in_max = cursor.IN_MAX
-
-        reserved = dict.fromkeys([m.id for m in moves], False)
-        for i in range(0, len(moves), in_max):
-            sub_ids = [i.id for i in moves[i:i + in_max]]
-            red_sql = reduce_ids(reservation.source, sub_ids)
-            cursor.execute(*reservation.select(reservation.source,
-                    Literal(True),
-                    where=red_sql,
-                    group_by=reservation.source))
-            reserved.update(cursor.fetchall())
-            red_sql = reduce_ids(reservation.destination, sub_ids)
-            cursor.execute(*reservation.select(reservation.destination,
-                    Literal(True),
-                    where=red_sql,
-                    group_by=reservation.destination))
-            reserved.update(cursor.fetchall())
-        return reserved
 
     def get_reserved_quantity(self, name):
         if not self.reserves_destination:
@@ -1364,14 +1348,28 @@ class Move:
     def write(cls, *args):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
+
         actions = iter(args)
-        for moves, value in zip(actions, actions):
-            if any(field in value for field in
-                    cls.reserve_non_writable_fields):
+        for moves, values in zip(actions, actions):
+            non_writable_fields = list(set(cls.reserve_non_writable_fields)
+                & set(values.keys()))
+            if not non_writable_fields:
+                continue
+
+            invalid_write_moves = []
+            for move in moves:
+                for field in non_writable_fields:
+                    current_value = getattr(move, field)
+                    if isinstance(current_value, Model):
+                        current_value = current_value.id
+                    if current_value != values[field]:
+                        invalid_write_moves.append(move)
+                        break
+            if invalid_write_moves:
                 reserves = Reservation.search([
                             ['OR',
-                                ('source', 'in', moves),
-                                ('destination', 'in', moves),
+                                ('source', 'in', invalid_write_moves),
+                                ('destination', 'in', invalid_write_moves),
                                 ]
                             ])
                 if reserves:
@@ -1503,9 +1501,6 @@ class Production(ReserveRelatedMixin):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
 
-        res = dict.fromkeys([p.id for p in productions], False)
-
-        inputs = [m for m in p.inputs for p in productions]
         productions_inputs = {}
         for production in productions:
             product_quantities = {}
@@ -1516,31 +1511,34 @@ class Production(ReserveRelatedMixin):
             productions_inputs[production] = product_quantities
 
         reserves = Reservation.search([
-                ('destination', 'in', inputs)
+                ('destination', 'in',
+                    [m for p in productions for m in p.inputs]),
                 ])
-
         for reserve in reserves:
             if (not reserve.destination and not
                     reserve.destination.production_input):
+                # It shouldn't happen
                 continue
             if reserve.reserve_type == 'in_stock':
                 production = reserve.destination.production_input
-                product_quantities = productions_inputs[production]
-                qty = product_quantities.setdefault(reserve.product, 0.0)
+                qty = productions_inputs[production].get(reserve.product, None)
+                if qty is None:
+                    # already removed
+                    continue
                 qty -= reserve.internal_quantity
-                if qty <= 0.0:
-                    del product_quantities[reserve.product]
+                if qty <= reserve.uom.rounding:
+                    del productions_inputs[production][reserve.product]
                 else:
-                    product_quantities[reserve.product] = qty
-                productions_inputs[production] = product_quantities
+                    productions_inputs[production][reserve.product] = qty
 
+        res = {}
         for production, value in productions_inputs.iteritems():
-            if not value:
-                res[production.id] = True
+            res[production.id] = not bool(value)
         return res
 
     @classmethod
     def search_ready_to_assign(cls, name, clause):
+        # TODO: apply changes done in get_ready_to_assign
         pool = Pool()
         Reservation = pool.get('stock.reservation')
 
@@ -1589,8 +1587,8 @@ class Sale(ReserveRelatedMixin):
 
     def get_recursive_reservations(self):
         pool = Pool()
+        Move = pool.get('stock.move')
         Reservation = pool.get('stock.reservation')
-        reservations = []
 
         def get_recursive_moves(moves, processed_moves=None):
             if not moves:
@@ -1601,7 +1599,8 @@ class Sale(ReserveRelatedMixin):
             reservations = Reservation.search([
                     ('destination', 'in', moves),
                     ])
-            new_moves = set([x.source for x in reservations if x.source])
+            new_moves = set([r.source for r in reservations
+                    if r.source and isinstance(r.source, Move)])
             for move in moves:
                 if move.id in processed_moves:
                     continue
@@ -1617,14 +1616,14 @@ class Sale(ReserveRelatedMixin):
         moves = []
         for shipment in self.shipments + self.shipment_returns:
             moves += shipment.inventory_moves
-        reservations += get_recursive_moves(moves)
-        return reservations
+        return get_recursive_moves(moves)
 
     def get_purchases(self, name):
         pool = Pool()
         PurchaseLine = pool.get('purchase.line')
-        purchases = set()
+        SaleLine = pool.get('sale.line')
 
+        purchases = set()
         for reservation in self.get_recursive_reservations():
             if reservation.source and reservation.source.origin:
                 origin = reservation.source.origin
@@ -1633,7 +1632,11 @@ class Sale(ReserveRelatedMixin):
             elif reservation.source_document and isinstance(
                     reservation.source_document, PurchaseLine):
                 purchases.add(reservation.source_document.purchase)
-
+        # support sale_supply(_drop_shipment)
+        if hasattr(SaleLine, 'purchase_request'):
+            for line in self.lines:
+                if line.purchase_request and line.purchase_request.purchase:
+                    purchases.add(line.purchase_request.purchase)
         return [p.id for p in purchases]
 
     @classmethod
@@ -1649,12 +1652,18 @@ class Sale(ReserveRelatedMixin):
     def get_purchase_requests(self, name):
         pool = Pool()
         Request = pool.get('purchase.request')
-        requests = set()
+        SaleLine = pool.get('sale.line')
 
+        requests = set()
         for reservation in self.get_recursive_reservations():
             if reservation.source_document and isinstance(
                     reservation.source_document, Request):
                 requests.add(reservation.source_document)
+        # support sale_supply(_drop_shipment)
+        if hasattr(SaleLine, 'purchase_request'):
+            for line in self.lines:
+                if line.purchase_request:
+                    requests.add(line.purchase_request)
         return [r.id for r in requests]
 
     @classmethod
@@ -1679,17 +1688,20 @@ class ShipmentOut(ReserveRelatedMixin):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
 
-        res = dict.fromkeys([s.id for s in shipments], False)
-
-        inventory_moves = [m for m in s.inventory_moves for s in shipments]
-
+        inventory_moves = [m for s in shipments for m in s.inventory_moves]
         reserves = Reservation.search([
                 ('destination', 'in', inventory_moves)
                 ])
 
+        reserves_by_shipment = {}
         for reserve in reserves:
-            if reserve.reserve_type == 'in_stock':
-                res[reserve.destination.shipment.id] = True
+            reserves_by_shipment.setdefault(reserve.destination.shipment.id,
+                []).append(bool(reserve.reserve_type == 'in_stock'))
+
+        res = {}
+        for shipment in shipments:
+            res[shipment.id] = (all(reserves_by_shipment[shipment.id])
+                if shipment.id in reserves_by_shipment else False)
         return res
 
     @classmethod

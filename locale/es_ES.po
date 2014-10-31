@@ -294,22 +294,6 @@ msgctxt "help:stock.reservation,internal_quantity:"
 msgid "Quantity in product default UOM"
 msgstr "Cantitat en la UdM por defecto del producto"
 
-msgctxt "model:ir.action,name:act_customer_return_shipment_form"
-msgid "Customer Return Shipments"
-msgstr "Devoluciones de cliente"
-
-msgctxt "model:ir.action,name:act_customer_shipment_form"
-msgid "Customer Shipments"
-msgstr "Albaranes cliente"
-
-msgctxt "model:ir.action,name:act_internal_shipment_form"
-msgid "Internal Shipments"
-msgstr "Albaranes internos"
-
-msgctxt "model:ir.action,name:act_production_form"
-msgid "Production"
-msgstr "Producción"
-
 msgctxt "model:ir.action,name:act_purchase_from_sales"
 msgid "Purchases"
 msgstr "Compras"
@@ -318,7 +302,7 @@ msgctxt "model:ir.action,name:act_requests_from_sales"
 msgid "Purchase Requests"
 msgstr "Solicitudes de compra"
 
-msgctxt "model:ir.action,name:act_reservation_form"
+msgctxt "model:ir.action,name:act_reservation_form_production"
 msgid "Reservations"
 msgstr "Reservas"
 
@@ -331,6 +315,10 @@ msgid "Reservations"
 msgstr "Reservas"
 
 msgctxt "model:ir.action,name:act_reservation_form_sale"
+msgid "Reservations"
+msgstr "Reservas"
+
+msgctxt "model:ir.action,name:act_reservation_form_shipment_out"
 msgid "Reservations"
 msgstr "Reservas"
 
@@ -347,16 +335,8 @@ msgid "Create Stock Reservations"
 msgstr "Crear reservas de estoc"
 
 msgctxt "model:ir.action,name:act_stock_reservation_type"
-msgid "Stock Reservation by Type"
+msgid "Stock Reservation"
 msgstr "Reserva de estoc por Tipo"
-
-msgctxt "model:ir.action,name:act_supplier_return_shipment_form"
-msgid "Supplier Return Shipments"
-msgstr "Devoluciones de proveedor"
-
-msgctxt "model:ir.action,name:act_supplier_shipment_form"
-msgid "Supplier Shipments"
-msgstr "Albaranes proveedor"
 
 msgctxt "model:ir.action,name:print_reservation_graph"
 msgid "Graph"
@@ -479,6 +459,10 @@ msgid "Pending"
 msgstr "Pendiente"
 
 msgctxt "selection:stock.reservation,failed_reason:"
+msgid ""
+msgstr ""
+
+msgctxt "selection:stock.reservation,failed_reason:"
 msgid "Destination Move was canceled"
 msgstr "El movimiento destino fue cancelado"
 
@@ -553,6 +537,10 @@ msgstr "Crear reservas de estoc"
 msgctxt "view:stock.create_reservations.start:"
 msgid "Create Stock Reservations?"
 msgstr "Crear reservas de estoc?"
+
+msgctxt "view:stock.reservation.print_graph.start:"
+msgid "Print Reserve Graph"
+msgstr "Imprimir gráfico de reservas"
 
 msgctxt "view:stock.reservation:"
 msgid "Destination Move"

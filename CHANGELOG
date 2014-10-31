@@ -1,1 +1,9 @@
+* Add compatibility with Drop Shipment
+* Remove reserved field of stock.move
+* Some fixes
+
+Version 3.2.0 - 2014-06-04
+* Adapted to 3.2 series
+
+Version 3.0.0 - 2014-02-06
 * Initial release
