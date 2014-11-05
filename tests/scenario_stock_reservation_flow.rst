@@ -250,8 +250,6 @@ Confirm purchase request and check reserve from purchase line::
     >>> request.save()
     >>> create_purchase = Wizard('purchase.request.create_purchase',
     ...     models=[request])
-    >>> create_purchase.form.payment_term = payment_term
-    >>> create_purchase.execute('start')
     >>> purchase_line, = PurchaseLine.find([])
     >>> purchase_line.quantity
     15.0
@@ -272,9 +270,11 @@ Confirm the purchase and test reserve still assigned to line::
     >>> Purchase = Model.get('purchase.purchase')
     >>> purchase = purchase_line.purchase
     >>> purchase.purchase_date = today
+    >>> purchase.payment_term = payment_term
     >>> purchase.save()
-    >>> Purchase.quote([purchase.id], config.context)
-    >>> Purchase.confirm([purchase.id], config.context)
+    >>> purchase.click('quote')
+    >>> purchase.click('confirm')
+    >>> purchase.click('process')
     >>> purchase_move, = purchase.moves
     >>> reservation.reload()
     >>> reservation.state = 'draft'
