@@ -1055,7 +1055,8 @@ class CreateReservations(Wizard):
         Reservation = pool.get('stock.reservation')
         reservations = Reservation.generate_reservations()
         if self.start.wait:
-            Reservation.wait(reservations)
+            Reservation.wait([r for r in reservations
+                    if r.reserve_type in ('on_time', 'in_stock', 'delayed')])
         return action, {}
 
     def transition_create_(self):
