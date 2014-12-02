@@ -16,7 +16,9 @@ def register():
         Production,
         Sale,
         ShipmentOut,
+        ShipmentOutReturn,
         ShipmentIn,
+        ShipmentInternal,
         Purchase,
         PurchaseRequest,
         module='stock_reservation', type_='model')
