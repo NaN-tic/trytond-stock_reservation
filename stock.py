@@ -19,7 +19,8 @@ from trytond.rpc import RPC
 __all__ = ['Reservation', 'WaitReservation', 'WaitReservationStart',
     'CreateReservations', 'CreateReservationsStart',
     'PrintReservationGraphStart', 'PrintReservationGraph', 'ReservationGraph',
-    'Move', 'PurchaseLine', 'Production', 'Sale', 'ShipmentOut', 'ShipmentIn',
+    'Move', 'PurchaseLine', 'Production', 'Sale',
+    'ShipmentOut', 'ShipmentOutReturn', 'ShipmentIn', 'ShipmentInternal',
     'Purchase', 'PurchaseRequest']
 __metaclass__ = PoolMeta
 
@@ -27,6 +28,17 @@ STATES = {
     'readonly': Eval('state') != 'draft',
 }
 DEPENDS = ['state']
+
+
+def delete_related_reservations(records, field):
+    assert field in ('source_document', 'destination_document')
+    pool = Pool()
+    Reservation = pool.get('stock.reservation')
+    reserves = Reservation.search([
+            (field, 'in', [str(r) for r in records]),
+            ])
+    if reserves:
+        Reservation.delete(reserves)
 
 
 class Reservation(Workflow, ModelSQL, ModelView):
@@ -1421,6 +1433,11 @@ class PurchaseLine:
         return Purchase.purchase_date.convert_order('purchase_date',
             tables['purchase'], Purchase)
 
+    @classmethod
+    def delete(cls, lines):
+        delete_related_reservations(lines, 'source_document')
+        super(PurchaseLine, cls).delete(lines)
+
 
 class ReserveRelatedMixin:
 
@@ -1575,6 +1592,11 @@ class Production(ReserveRelatedMixin):
         operator = 'in' if clause[2] else 'not in'
         return [('id', operator, [x.id for x in productions])]
 
+    @classmethod
+    def delete(cls, productions):
+        delete_related_reservations(productions, 'source_document')
+        super(Production, cls).delete(productions)
+
 
 class Sale(ReserveRelatedMixin):
     __name__ = 'sale.sale'
@@ -1725,6 +1747,15 @@ class ShipmentOut(ReserveRelatedMixin):
         return [('id', operator, [x.id for x in shipments])]
 
 
+class ShipmentOutReturn:
+    __name__ = 'stock.shipment.out.return'
+
+    @classmethod
+    def delete(cls, shipments):
+        delete_related_reservations(shipments, 'source_document')
+        super(ShipmentOutReturn, cls).delete(shipments)
+
+
 class ShipmentIn:
     __name__ = 'stock.shipment.in'
 
@@ -1750,6 +1781,20 @@ class ShipmentIn:
                                             'source': inventory_move.id,
                                             })
                             break
+
+    @classmethod
+    def delete(cls, shipments):
+        delete_related_reservations(shipments, 'source_document')
+        super(ShipmentIn, cls).delete(shipments)
+
+
+class ShipmentInternal:
+    __name__ = 'stock.shipment.internal'
+
+    @classmethod
+    def delete(cls, shipments):
+        delete_related_reservations(shipments, 'source_document')
+        super(ShipmentInternal, cls).delete(shipments)
 
 
 class Purchase:
@@ -1892,3 +1937,8 @@ class PurchaseRequest:
                             'source_document': ('purchase.line,%d' %
                                 value.get('purchase_line')),
                             })
+
+    @classmethod
+    def delete(cls, requests):
+        delete_related_reservations(requests, 'source_document')
+        super(PurchaseRequest, cls).delete(requests)
