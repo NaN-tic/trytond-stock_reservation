@@ -4,6 +4,7 @@ from datetime import datetime
 from sql import Literal, Cast
 from sql.operators import Concat
 from sql.conditionals import Case
+import time
 
 from trytond.model import Workflow, Model, ModelSQL, ModelView, fields
 from trytond.report import Report
@@ -12,7 +13,6 @@ from trytond.pool import Pool, PoolMeta
 from trytond.transaction import Transaction
 from trytond.wizard import Wizard, StateView, StateAction, StateTransition, \
     Button
-from trytond.tools import reduce_ids
 from trytond.rpc import RPC
 
 
@@ -1602,13 +1602,55 @@ class Sale(ReserveRelatedMixin):
     __name__ = 'sale.sale'
 
     purchases = fields.Function(fields.One2Many('purchase.purchase', None,
-            'Purchases'), 'get_purchases', searcher='search_purchases')
+            'Purchases'),
+        #'get_purchases_and_requests', searcher='search_purchases')
+        'get_purchases', searcher='search_purchases')
 
     purchase_requests = fields.Function(fields.One2Many('purchase.request',
-            None, 'Purchase Requests'), 'get_purchase_requests',
-        searcher='search_purchase_requests')
+            None, 'Purchase Requests'),
+        #'get_purchases_and_requests', searcher='search_purchase_requests')
+        'get_purchase_requests', searcher='search_purchase_requests')
+
+    def get_recursive_reservations_generator(self):
+        """Generator version"""
+        start_time = time.time()
+        pool = Pool()
+        Move = pool.get('stock.move')
+        Reservation = pool.get('stock.reservation')
+
+        def get_recursive_moves(moves, processed_moves=None):
+            if not moves:
+                return
+            if processed_moves is None:
+                processed_moves = set()
+
+            reservations = Reservation.search([
+                    ('destination', 'in', moves),
+                    ])
+
+            new_moves = set()
+            for reservation in reservations:
+                yield reservation
+                if reservation.source and isinstance(reservation.source, Move):
+                    new_moves.add(reservation.source)
+
+            for move in moves:
+                if move.id in processed_moves:
+                    continue
+                if move.production_output:
+                    new_moves |= set(move.production_output.inputs)
+                processed_moves.add(move.id)
+
+            get_recursive_moves(list(new_moves), processed_moves)
+
+        moves = []
+        for shipment in self.shipments + self.shipment_returns:
+            moves += shipment.inventory_moves
+        for reservation in get_recursive_moves(moves):
+            yield reservation
 
     def get_recursive_reservations(self):
+        start_time = time.time()
         pool = Pool()
         Move = pool.get('stock.move')
         Reservation = pool.get('stock.reservation')
@@ -1639,9 +1681,57 @@ class Sale(ReserveRelatedMixin):
         moves = []
         for shipment in self.shipments + self.shipment_returns:
             moves += shipment.inventory_moves
-        return get_recursive_moves(moves)
+        res = get_recursive_moves(moves)
+        return res
+
+    @classmethod
+    def get_purchases_and_requests(cls, sales, names):
+        start_time = time.time()
+        pool = Pool()
+        PurchaseLine = pool.get('purchase.line')
+        Request = pool.get('purchase.request')
+        SaleLine = pool.get('sale.line')
+
+        res = {}
+        for fname in names:
+            res[fname] = {}
+
+        for sale in sales:
+            loop_start_time = time.time()
+            purchases = set()
+            requests = set()
+            for reservation in sale.get_recursive_reservations_generator():
+                if 'purchases' in names:
+                    if reservation.source and reservation.source.origin:
+                        origin = reservation.source.origin
+                        if isinstance(origin, PurchaseLine):
+                            purchases.add(origin.purchase)
+                    elif reservation.source_document and isinstance(
+                            reservation.source_document, PurchaseLine):
+                        purchases.add(reservation.source_document.purchase)
+                if ('purchase_requests' in names
+                        and reservation.source_document
+                        and isinstance(reservation.source_document, Request)):
+                    requests.add(reservation.source_document)
+            reservations_time = time.time() - loop_start_time
+            # support sale_supply(_drop_shipment)
+            if hasattr(SaleLine, 'purchase_request'):
+                for line in sale.lines:
+                    if ('purchases' in names and line.purchase_request
+                            and line.purchase_request.purchase):
+                        purchases.add(line.purchase_request.purchase)
+                    if 'purchase_requests' in names and line.purchase_request:
+                        requests.add(line.purchase_request)
+            requests_time = time.time() - loop_start_time - reservations_time
+            if 'purchases' in names:
+                res['purchases'][sale.id] = [p.id for p in purchases]
+            if 'purchase_requests' in names:
+                res['purchase_requests'][sale.id] = [r.id for r in requests]
+            loop_time = time.time() - loop_start_time
+        return res
 
     def get_purchases(self, name):
+        start_time = time.time()
         pool = Pool()
         PurchaseLine = pool.get('purchase.line')
         SaleLine = pool.get('sale.line')
@@ -1673,6 +1763,7 @@ class Sale(ReserveRelatedMixin):
         return [('id', 'in', sales)]
 
     def get_purchase_requests(self, name):
+        start_time = time.time()
         pool = Pool()
         Request = pool.get('purchase.request')
         SaleLine = pool.get('sale.line')
@@ -1687,7 +1778,7 @@ class Sale(ReserveRelatedMixin):
             for line in self.lines:
                 if line.purchase_request:
                     requests.add(line.purchase_request)
-        return [r.id for r in requests]
+ss        return [r.id for r in requests]
 
     @classmethod
     def search_purchase_requests(cls, name, clause):
