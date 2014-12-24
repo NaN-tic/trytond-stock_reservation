@@ -1856,7 +1856,7 @@ class Sale(ReserveRelatedMixin):
             for line in self.lines:
                 if line.purchase_request:
                     requests.add(line.purchase_request)
-ss        return [r.id for r in requests]
+        return [r.id for r in requests]
 
     @classmethod
     def search_purchase_requests(cls, name, clause):
