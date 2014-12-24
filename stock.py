@@ -4,7 +4,6 @@ from datetime import datetime
 from sql import Literal, Cast
 from sql.operators import Concat
 from sql.conditionals import Case
-import time
 
 from trytond.model import Workflow, Model, ModelSQL, ModelView, fields
 from trytond.report import Report
@@ -319,8 +318,6 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
     @classmethod
     def get_source_document(cls):
-        pool = Pool()
-        Model = pool.get('ir.model')
         models = cls._get_source_document()
         models = Model.search([
                 ('model', 'in', models),
@@ -339,8 +336,6 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
     @classmethod
     def get_destination_document_selection(cls):
-        pool = Pool()
-        Model = pool.get('ir.model')
         models = cls._get_destination_document_models()
         models = Model.search([
                 ('model', 'in', models),
@@ -1691,7 +1686,6 @@ class Sale(ReserveRelatedMixin):
 
     def get_recursive_reservations_generator(self):
         """Generator version"""
-        start_time = time.time()
         pool = Pool()
         Move = pool.get('stock.move')
         Reservation = pool.get('stock.reservation')
@@ -1728,7 +1722,6 @@ class Sale(ReserveRelatedMixin):
             yield reservation
 
     def get_recursive_reservations(self):
-        start_time = time.time()
         pool = Pool()
         Move = pool.get('stock.move')
         Reservation = pool.get('stock.reservation')
@@ -1764,7 +1757,6 @@ class Sale(ReserveRelatedMixin):
 
     @classmethod
     def get_purchases_and_requests(cls, sales, names):
-        start_time = time.time()
         pool = Pool()
         PurchaseLine = pool.get('purchase.line')
         Request = pool.get('purchase.request')
@@ -1775,7 +1767,6 @@ class Sale(ReserveRelatedMixin):
             res[fname] = {}
 
         for sale in sales:
-            loop_start_time = time.time()
             purchases = set()
             requests = set()
             for reservation in sale.get_recursive_reservations_generator():
@@ -1791,7 +1782,6 @@ class Sale(ReserveRelatedMixin):
                         and reservation.source_document
                         and isinstance(reservation.source_document, Request)):
                     requests.add(reservation.source_document)
-            reservations_time = time.time() - loop_start_time
             # support sale_supply(_drop_shipment)
             if hasattr(SaleLine, 'purchase_request'):
                 for line in sale.lines:
@@ -1800,16 +1790,13 @@ class Sale(ReserveRelatedMixin):
                         purchases.add(line.purchase_request.purchase)
                     if 'purchase_requests' in names and line.purchase_request:
                         requests.add(line.purchase_request)
-            requests_time = time.time() - loop_start_time - reservations_time
             if 'purchases' in names:
                 res['purchases'][sale.id] = [p.id for p in purchases]
             if 'purchase_requests' in names:
                 res['purchase_requests'][sale.id] = [r.id for r in requests]
-            loop_time = time.time() - loop_start_time
         return res
 
     def get_purchases(self, name):
-        start_time = time.time()
         pool = Pool()
         PurchaseLine = pool.get('purchase.line')
         SaleLine = pool.get('sale.line')
@@ -1841,7 +1828,6 @@ class Sale(ReserveRelatedMixin):
         return [('id', 'in', sales)]
 
     def get_purchase_requests(self, name):
-        start_time = time.time()
         pool = Pool()
         Request = pool.get('purchase.request')
         SaleLine = pool.get('sale.line')
