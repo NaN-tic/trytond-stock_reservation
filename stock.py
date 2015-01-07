@@ -318,6 +318,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
     @classmethod
     def get_source_document(cls):
+        pool = Pool()
+        Model = pool.get('ir.model')
         models = cls._get_source_document()
         models = Model.search([
                 ('model', 'in', models),
@@ -336,6 +338,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
     @classmethod
     def get_destination_document_selection(cls):
+        pool = Pool()
+        Model = pool.get('ir.model')
         models = cls._get_destination_document_models()
         models = Model.search([
                 ('model', 'in', models),
