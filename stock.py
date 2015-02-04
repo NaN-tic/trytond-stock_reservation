@@ -649,11 +649,24 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     ])
             cls.delete(reservations)
 
-        to_create = []
+        destination_moves = cls.get_destination_moves()
+
+        location_ids = [l.id for l in Location.search([
+                    ('type', '=', 'storage')])]
+        product_ids = list(set([m.product.id for m in destination_moves]))
+        with Transaction().set_context(stock_assign=True,
+                stock_date_end=Date.today()):
+            pbl = Product.products_by_location(location_ids, product_ids)
+
         consumed_quantities = {}
         for reservation in cls.search([
                     ('state', 'not in', ['done', 'failed']),
                     ]):
+            if reservation.get_from_stock:
+                key = (reservation.destination.from_location.id,
+                    reservation.destination.product.id)
+                pbl[key] -= reservation.internal_quantity
+
             for name in ('source', 'destination'):
                 move = getattr(reservation, name, None)
                 if not move:
@@ -662,7 +675,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 if not key in consumed_quantities:
                     consumed_quantities[key] = 0
                 #TODO: Currently not converting uom.
-                consumed_quantities[key] += move.internal_quantity
+                consumed_quantities[key] += reservation.internal_quantity
             source_document = reservation.source_document
             if source_document:
                 key = None
@@ -678,15 +691,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         requests = cls.get_purchase_requests()
         purchase_lines = cls.get_purchase_lines()
 
-        destination_moves = cls.get_destination_moves()
-
-        location_ids = [l.id for l in Location.search([
-                    ('type', '=', 'storage')])]
-        product_ids = list(set([m.product.id for m in destination_moves]))
-        with Transaction().set_context(stock_assign=True,
-                stock_date_end=Date.today()):
-            pbl = Product.products_by_location(location_ids, product_ids)
-
+        to_create = []
         for destination in destination_moves:
             quantity = destination.internal_quantity
             reserved_quantity = consumed_quantities.get(('destination',
