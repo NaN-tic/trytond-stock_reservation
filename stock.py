@@ -191,6 +191,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 ('waiting', 'draft'),
                 ('waiting', 'failed'),
                 ('waiting', 'done'),
+                ('done', 'draft'),
                 ))
         cls._buttons.update({
                 'draft': {
@@ -544,8 +545,10 @@ class Reservation(Workflow, ModelSQL, ModelView):
         pool = Pool()
         Move = pool.get('stock.move')
 
-        moves = ([r.source for r in reservations if r.source] +
-            [r.destination for r in reservations if r.destination])
+        moves = ([r.source for r in reservations
+                if r.source and r.state != 'done'] +
+            [r.destination for r in reservations
+                if r.destination and r.state != 'done'])
         with Transaction().set_context(stock_reservation=True):
             Move.draft(moves)
 
@@ -1287,6 +1290,25 @@ class Move:
         if available - self.incompatible_reserved_quantity < remaining:
             return []
         return res
+
+    @classmethod
+    def draft(cls, moves):
+        """
+        When a move is moved to draft from assigned, its reservations are also
+        moved to draft
+        """
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+
+        super(Move, cls).draft(moves)
+
+        move_ids = [m.id for m in moves]
+        reservations = Reservation.search([
+                ('state', '=', 'done'),
+                ('destination', 'in', move_ids),
+                ])
+        if reservations:
+            Reservation.draft(reservations)
 
     @classmethod
     def assign(cls, moves):
