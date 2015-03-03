@@ -10,8 +10,8 @@
     <field name="reserve_type"/>
     <field name="day_difference"/>
     <field name="state"/>
-    <button string="Wait" name="wait" icon="tryton-go-next"/>
-    <button string="Reset to Draft" name="draft" icon="tryton-clear"/>
+    <button string="Wait" name="wait"/>
+    <button string="Reset to Draft" name="draft"/>
     <field name="internal_shipments" tree_invisible="1" />
     <field name="customer_shipments" tree_invisible="1" />
     <field name="customer_return_shipments" tree_invisible="1" />
