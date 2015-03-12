@@ -585,8 +585,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
         to_assign = []
         to_do = []
         for reservation in reservations:
-            #TODO: Determine when to split moves
-#           reservation.split_moves('done')
+            # TODO: Determine when to split moves
+            # reservation.split_moves('done')
             if reservation.source and reservation.source.state == 'assigned':
                 to_do.append(reservation.source)
             if reservation.destination.state == 'draft':
@@ -612,7 +612,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         move = getattr(self, move_name)
         if not move:
             return
-        #TODO: This should be moved to check_* method? Currently is not called
+        # TODO: This should be moved to check_* method? Currently is not called
         move_qty = Uom.compute_qty(move.uom, move.quantity, self.uom)
         if move_qty < self.quantity:
             self.raise_user_error('reservation_overpass_move', (self.rec_name,
@@ -643,6 +643,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Product = pool.get('product.product')
         PurchaseLine = pool.get('purchase.line')
         PurchaseRequest = pool.get('purchase.request')
+        SaleLine = pool.get('sale.line')
         Uom = pool.get('product.uom')
 
         if clean:
@@ -674,9 +675,9 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 if not move:
                     continue
                 key = (name, move.id,)
-                if not key in consumed_quantities:
+                if key not in consumed_quantities:
                     consumed_quantities[key] = 0
-                #TODO: Currently not converting uom.
+                # TODO: Currently not converting uom.
                 consumed_quantities[key] += reservation.internal_quantity
             source_document = reservation.source_document
             if source_document:
@@ -686,7 +687,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 elif isinstance(source_document, PurchaseRequest):
                     key = ('purchase_request', source_document.id,)
                 if key:
-                    if not key in consumed_quantities:
+                    if key not in consumed_quantities:
                         consumed_quantities[key] = 0
                     consumed_quantities[key] += reservation.internal_quantity
 
@@ -694,11 +695,44 @@ class Reservation(Workflow, ModelSQL, ModelView):
         purchase_lines = cls.get_purchase_lines()
 
         to_create = []
+
+        def __reservation_from_source(source, destination, quantity):
+            key = ('source', source.id,)
+            consumed_quantity = consumed_quantities.get(key, 0.0)
+            remaining_quantity = (source.internal_quantity -
+                consumed_quantity)
+
+            if remaining_quantity <= 0.0:
+                return quantity
+
+            reserve_quantity = min(quantity, remaining_quantity)
+
+            reservation = cls.get_reservation(source, destination,
+                reserve_quantity, destination.product.default_uom)
+            consumed_quantities[key] = (consumed_quantity +
+                reserve_quantity)
+            to_create.append(reservation._save_values)
+            quantity -= reserve_quantity
+            return quantity
+
         for destination in destination_moves:
             quantity = destination.internal_quantity
             reserved_quantity = consumed_quantities.get(('destination',
                     destination.id,), 0.0)
             quantity -= reserved_quantity
+
+            if quantity <= 0.0:
+                continue
+
+            # If sale_product_raw is installed, first of all create reservation
+            # for sale's delivery moves getting sale's production as source
+            if hasattr(SaleLine, 'productions'):
+                # create reservations from sale's produced moves
+                for source in cls.get_produced_source_moves(destination):
+                    quantity = __reservation_from_source(source,
+                        destination, quantity)
+                    if quantity <= 0.0:
+                        break
 
             if quantity <= 0.0:
                 continue
@@ -720,22 +754,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
             # Create reservation from other moves
             for source in cls.get_source_moves(destination):
-                key = ('source', source.id,)
-                consumed_quantity = consumed_quantities.get(key, 0.0)
-                remaining_quantity = (source.internal_quantity -
-                    consumed_quantity)
-
-                if remaining_quantity <= 0.0:
-                    continue
-
-                reserve_quantity = min(quantity, remaining_quantity)
-
-                reservation = cls.get_reservation(source, destination,
-                    reserve_quantity, destination.product.default_uom)
-                consumed_quantities[key] = (consumed_quantity +
-                    reserve_quantity)
-                to_create.append(reservation._save_values)
-                quantity -= reserve_quantity
+                quantity = __reservation_from_source(source, destination,
+                    quantity)
                 if quantity <= 0.0:
                     break
 
@@ -756,7 +776,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 skip_ids = set(x.id for x in purchase_line.moves_recreated
                     + purchase_line.moves_ignored)
                 for move in purchase_line.moves:
-                    if move.state == 'done' and not move.id in skip_ids:
+                    if move.state == 'done' and move.id not in skip_ids:
                         internal_quantity -= move.internal_quantity
                 remaining_quantity = internal_quantity - consumed_quantity
 
@@ -840,7 +860,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
             skip_ids = set(x.id for x in purchase_line.moves_recreated
                 + purchase_line.moves_ignored)
             for move in purchase_line.moves:
-                if move.state == 'done' and not move.id in skip_ids:
+                if move.state == 'done' and move.id not in skip_ids:
                     internal_quantity -= move.internal_quantity
             remaining_quantity = internal_quantity - consumed_quantity
 
@@ -979,6 +999,32 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     ('shipment', 'not like', 'stock.shipment.drop,%'),
                     ])
         return Move.search(domain, order=[
+                ('planned_date', 'ASC'),
+                ('internal_quantity', 'DESC'),
+                ])
+
+    @classmethod
+    def get_produced_source_moves(cls, destination):
+        pool = Pool()
+        Move = pool.get('stock.move')
+
+        if (not destination.shipment
+                or not isinstance(destination.shipment, ShipmentOut)
+                and (not destination.to_location.id
+                    == destination.shipment.warehouse.output_location.id)):
+            # It isn't an inventory move of shipment out
+            return []
+
+        dest_outgoing_moves = [m.id
+            for m in destination.shipment.outgoing_moves]
+        return Move.search([
+                ('product', '=', destination.product),
+                ('to_location', '=', destination.from_location),
+                ('state', '=', 'draft'),
+                ('production_output.origin.moves', 'in',
+                    dest_outgoing_moves, 'sale.line'),
+                ],
+            order=[
                 ('planned_date', 'ASC'),
                 ('internal_quantity', 'DESC'),
                 ])
