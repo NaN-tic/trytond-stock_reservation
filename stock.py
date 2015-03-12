@@ -568,9 +568,10 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Move = pool.get('stock.move')
         moves = []
         for reservation in reservations:
-            if reservation.source.state == 'assigned':
+            if reservation.source and reservation.source.state == 'assigned':
                 moves.append(reservation.source)
-            if reservation.destination.state == 'assigned':
+            if (reservation.destination and
+                reservation.destination.state == 'assigned'):
                 moves.append(reservation.destination)
         with Transaction().set_context(stock_reservation=True):
             Move.draft(moves)
@@ -589,7 +590,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
             # reservation.split_moves('done')
             if reservation.source and reservation.source.state == 'assigned':
                 to_do.append(reservation.source)
-            if reservation.destination.state == 'draft':
+            if (reservation.destination and
+                reservation.destination.state == 'draft'):
                 to_assign.append(reservation.destination)
 
         cls.write(reservations, {'state': 'done'})
