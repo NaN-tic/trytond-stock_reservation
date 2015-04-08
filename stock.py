@@ -694,6 +694,12 @@ class Reservation(Workflow, ModelSQL, ModelView):
         requests = cls.get_purchase_requests()
         purchase_lines = cls.get_purchase_lines()
 
+        warehouses = Location.search([
+                ('type', '=', 'warehouse'),
+                ])
+        default_warehouse_location = (warehouses[0].storage_location
+            if len(warehouses) == 1 else None)
+
         to_create = []
         for destination in destination_moves:
             quantity = destination.internal_quantity
@@ -745,9 +751,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
             # Create reservation from purchase_lines
             for purchase_line in purchase_lines:
-                if (purchase_line.product != destination.product or
-                        (purchase_line.purchase.warehouse.storage_location !=
-                            destination.from_location)):
+                purchase_location = (
+                    purchase_line.purchase.warehouse.storage_location
+                    if purchase_line.purchase.warehouse
+                    else default_warehouse_location)
+                if (purchase_line.product != destination.product
+                        or not purchase_location
+                        or purchase_location != destination.from_location):
                     continue
                 key = ('purchase_line', purchase_line.id,)
                 consumed_quantity = consumed_quantities.get(key, 0.0)
@@ -781,9 +791,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
             # Create reservation from purchase_requests
             for purchase_request in requests:
-                if (purchase_request.product != destination.product or
-                        (purchase_request.warehouse.storage_location !=
-                            destination.from_location)):
+                purchase_location = (
+                    purchase_request.warehouse.storage_location
+                    if purchase_request.warehouse
+                    else default_warehouse_location)
+                if (purchase_request.product != destination.product
+                        or not purchase_location
+                        or purchase_location != destination.from_location):
                     continue
                 key = ('purchase_request', purchase_request.id,)
                 consumed_quantity = consumed_quantities.get(key, 0.0)
@@ -833,6 +847,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
         # * Purchase lines
         for purchase_line in purchase_lines:
+            purchase_location = (
+                purchase_line.purchase.warehouse.storage_location
+                if purchase_line.purchase.warehouse
+                else default_warehouse_location)
+            if not purchase_location:
+                continue
+
             key = ('purchase_line', purchase_line.id,)
             consumed_quantity = consumed_quantities.get(key, 0.0)
             internal_quantity = Uom.compute_qty(
@@ -847,15 +868,23 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
             if remaining_quantity <= 0.0:
                 continue
+
             reservation = cls(product=purchase_line.product,
                 quantity=remaining_quantity,
                 uom=purchase_line.unit,
-                location=purchase_line.purchase.warehouse.storage_location,
+                location=purchase_location,
                 source_document=purchase_line)
             to_create.append(reservation._save_values)
 
         # * Purchase requests
         for purchase_request in requests:
+            purchase_location = (
+                purchase_request.warehouse.storage_location
+                if purchase_request.warehouse
+                else default_warehouse_location)
+            if not purchase_location:
+                continue
+
             key = ('purchase_request', purchase_request.id,)
             consumed_quantity = consumed_quantities.get(key, 0.0)
             internal_quantity = Uom.compute_qty(
@@ -869,7 +898,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
             reservation = cls(product=purchase_request.product,
                 quantity=remaining_quantity,
                 uom=purchase_request.product.default_uom,
-                location=purchase_request.warehouse.storage_location,
+                location=purchase_location,
                 source_document=purchase_request)
             to_create.append(reservation._save_values)
 
