@@ -1957,17 +1957,17 @@ class ShipmentIn:
                     if (inventory_move.product == incoming_move.product and
                             (inventory_move.internal_quantity ==
                                 incoming_move.internal_quantity)):
-                            if isinstance(incoming_move.origin, PurchaseLine):
-                                reserves = Reservation.search([
-                                        ('state', 'in', ['draft', 'waiting']),
-                                        ('source_document', '=',
-                                            str(incoming_move.origin)),
-                                        ])
-                                if reserves:
-                                    Reservation.write(reserves, {
-                                            'source': inventory_move.id,
-                                            })
-                            break
+                        if isinstance(incoming_move.origin, PurchaseLine):
+                            reserves = Reservation.search([
+                                    ('state', 'in', ['draft', 'waiting']),
+                                    ('source_document', '=',
+                                        str(incoming_move.origin)),
+                                    ])
+                            if reserves:
+                                Reservation.write(reserves, {
+                                        'source': inventory_move.id,
+                                        })
+                        break
 
     @classmethod
     def delete(cls, shipments):
