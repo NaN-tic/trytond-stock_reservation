@@ -667,7 +667,6 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Product = pool.get('product.product')
         PurchaseLine = pool.get('purchase.line')
         PurchaseRequest = pool.get('purchase.request')
-        SaleLine = pool.get('sale.line')
         Uom = pool.get('product.uom')
 
         if clean:
@@ -745,24 +744,40 @@ class Reservation(Workflow, ModelSQL, ModelView):
             quantity -= reserve_quantity
             return quantity
 
+        # If sale_product_raw is installed, first of all create reservation
+        # for sale's delivery moves getting sale's production as source
+        import time
+        start_time = time.time()
+        for sources, destinations in cls.get_sale_lines_moves():
+            if not sources or not destinations:
+                continue
+
+            for destination in destinations:
+                assert destination.state == 'draft'
+
+                key = ('destination', destination.id,)
+                reserved_quantity = consumed_quantities.get(key, 0.0)
+                quantity = destination.internal_quantity - reserved_quantity
+
+                if quantity <= 0.0:
+                    continue
+
+                for source in sources:
+                    assert source.product == destination.product, "source/destination product different: %s - %s" % (source, destination)
+                    assert source.to_location == destination.from_location, "source/destination location different: %s - %s" % (source, destination)
+                    quantity = __reservation_from_source(source,
+                        destination, quantity)
+                    if quantity <= 0.0:
+                        break
+
+                consumed_quantities[key] = (destination.internal_quantity
+                    - quantity)
+
         for destination in destination_moves:
             quantity = destination.internal_quantity
             reserved_quantity = consumed_quantities.get(('destination',
                     destination.id,), 0.0)
             quantity -= reserved_quantity
-
-            if quantity <= 0.0:
-                continue
-
-            # If sale_product_raw is installed, first of all create reservation
-            # for sale's delivery moves getting sale's production as source
-            if hasattr(SaleLine, 'productions'):
-                # create reservations from sale's produced moves
-                for source in cls.get_produced_source_moves(destination):
-                    quantity = __reservation_from_source(source,
-                        destination, quantity)
-                    if quantity <= 0.0:
-                        break
 
             if quantity <= 0.0:
                 continue
@@ -1004,6 +1019,49 @@ class Reservation(Workflow, ModelSQL, ModelView):
         return lines
 
     @classmethod
+    def get_sale_lines_moves(cls):
+        """
+        Get all sale lines with productions
+        (compatibility wit sale_product_raw)
+        """
+        pool = Pool()
+        Move = pool.get('stock.move')
+        SaleLine = pool.get('sale.line')
+        ShipmentOut = pool.get('stock.shipment.out')
+
+        if not hasattr(SaleLine, 'productions'):
+            return
+        sale_lines = SaleLine.search([
+                ('sale.state', '=', 'processing'),
+                ('type', '=', 'line'),
+                ('product.raw_product', '!=', None),
+                ])
+        for sale_line in sale_lines:
+            source_moves = Move.search([
+                    ('production_output.origin', '=', str(sale_line)),
+                    ('product', '=', sale_line.product.id),
+                    ('state', '=', 'draft'),
+                    ])
+            if not source_moves:
+                continue
+
+            # TODO: it will be better to have a link between
+            # outgoing_moves and inventory_moves
+            shipments_out = [str(m.shipment) for m in sale_line.moves
+                if (m.state != 'cancel'
+                    and isinstance(m.shipment, ShipmentOut))]
+            if not shipments_out:
+                continue
+            destinations = Move.search([
+                    ('shipment', 'in', shipments_out),
+                    ('product', '=', sale_line.product.id),
+                    ('to_location', '=', sale_line.from_location.id),
+                    ('state', '=', 'draft'),
+                    ])
+            if destinations:
+                yield (source_moves, destinations)
+
+    @classmethod
     def get_destination_moves(cls):
         """
         Returns possible destination moves to create stock reservations
@@ -1052,32 +1110,6 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     ('shipment', 'not like', 'stock.shipment.drop,%'),
                     ])
         return Move.search(domain, order=[
-                ('planned_date', 'ASC'),
-                ('internal_quantity', 'DESC'),
-                ])
-
-    @classmethod
-    def get_produced_source_moves(cls, destination):
-        pool = Pool()
-        Move = pool.get('stock.move')
-
-        if (not destination.shipment
-                or not isinstance(destination.shipment, ShipmentOut)
-                and (not destination.to_location.id
-                    == destination.shipment.warehouse.output_location.id)):
-            # It isn't an inventory move of shipment out
-            return []
-
-        dest_outgoing_moves = [m.id
-            for m in destination.shipment.outgoing_moves]
-        return Move.search([
-                ('product', '=', destination.product),
-                ('to_location', '=', destination.from_location),
-                ('state', '=', 'draft'),
-                ('production_output.origin.moves', 'in',
-                    dest_outgoing_moves, 'sale.line'),
-                ],
-            order=[
                 ('planned_date', 'ASC'),
                 ('internal_quantity', 'DESC'),
                 ])
