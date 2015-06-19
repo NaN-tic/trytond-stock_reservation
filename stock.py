@@ -746,8 +746,6 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
         # If sale_product_raw is installed, first of all create reservation
         # for sale's delivery moves getting sale's production as source
-        import time
-        start_time = time.time()
         for sources, destinations in cls.get_sale_lines_moves():
             if not sources or not destinations:
                 continue
@@ -787,12 +785,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
             stock_quantity = min(pbl.get(key, 0.0),
                 destination.internal_quantity)
             if stock_quantity > 0.0:
+                reservation_quantity = min(stock_quantity, quantity)
                 reservation = cls.get_reservation(None, destination,
-                    stock_quantity, destination.product.default_uom)
+                    reservation_quantity, destination.product.default_uom)
                 reservation.get_from_stock = True
-                pbl[key] -= stock_quantity
+                pbl[key] -= reservation_quantity
                 to_create.append(reservation._save_values)
-                quantity -= stock_quantity
+                quantity -= reservation_quantity
 
             if quantity <= 0.0:
                 continue
