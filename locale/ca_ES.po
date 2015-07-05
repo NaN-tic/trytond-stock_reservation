@@ -368,7 +368,7 @@ msgstr "Totes"
 msgctxt ""
 "model:ir.action.act_window.domain,name:act_stock_reservation_type_delayed_domain"
 msgid "Assigned Delayed"
-msgstr "Assignat en retràs"
+msgstr "Assignat amb retard"
 
 msgctxt ""
 "model:ir.action.act_window.domain,name:act_stock_reservation_type_exceeding_domain"
@@ -472,7 +472,7 @@ msgstr "El moviment origen es va cancel·lar"
 
 msgctxt "selection:stock.reservation,reserve_type:"
 msgid "Assigned Delayed"
-msgstr "Assignat en retràs"
+msgstr "Assignat amb retard"
 
 msgctxt "selection:stock.reservation,reserve_type:"
 msgid "Assigned On Time"
