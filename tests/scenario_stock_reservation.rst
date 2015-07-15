@@ -214,11 +214,8 @@ Wait the reservation::
     >>> reservation.state == 'waiting'
     True
     >>> incoming_move.reload()
-    >>> bool(incoming_move.reserved)
-    True
-    >>> outgoing_move.reload()
-    >>> bool(outgoing_move.reserved)
-    True
+    >>> incoming_move.reserved_quantity
+    1.0
 
 Do the reserve::
 
