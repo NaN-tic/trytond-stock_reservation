@@ -1,12 +1,13 @@
 <?xml version="1.0"?>
 <!-- The COPYRIGHT file at the top level of this repository contains the full
      copyright notices and license terms. -->
-<tree string="Stock Reservation">
+<tree string="Stock Reservation" colors="Eval('warning_color', 'black')">
     <field name="product"/>
     <field name="quantity"/>
     <field name="uom"/>
     <field name="source_document"/>
     <field name="destination_document"/>
+    <field name="destination_planned_date"/>
     <field name="reserve_type"/>
     <field name="day_difference"/>
     <field name="state"/>
@@ -18,4 +19,5 @@
     <field name="supplier_shipments" tree_invisible="1" />
     <field name="supplier_return_shipments" tree_invisible="1" />
     <field name="productions" tree_invisible="1" />
+    <field name="warning_color" tree_invisible="1"/>
 </tree>
