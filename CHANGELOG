@@ -1,3 +1,5 @@
+* Helper to detect late reservations
+
 Version 3.2.1 - 2014-10-31
 * Add compatibility with Drop Shipment
 * Remove reserved field of stock.move

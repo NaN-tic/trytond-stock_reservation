@@ -149,8 +149,13 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 ('on_time', 'Assigned On Time'),
                 ('delayed', 'Assigned Delayed'),
                 ('in_stock', 'In Stock'),
-                ], 'Reserve Type'), 'get_reserve_type',
-        searcher='search_reserve_type')
+                ], 'Reserve Type'),
+        'get_reserve_type', searcher='search_reserve_type')
+    warning_color = fields.Function(fields.Selection([
+                ('black', 'Ok (Black)'),
+                ('red', 'Reservation in past (Red)'),
+                ], 'Warning Color'),
+        'get_warning_color')
     day_difference = fields.Function(fields.Integer('Day Difference'),
         'get_day_difference', searcher='search_day_difference')
     supplier_shipments = fields.Function(fields.One2Many('stock.shipment.in',
@@ -400,6 +405,15 @@ class Reservation(Workflow, ModelSQL, ModelView):
         if self.day_difference and self.day_difference < 0:
             return 'delayed'
         return 'on_time'
+
+    def get_warning_color(self, name):
+        Date = Pool().get('ir.date')
+        today = Date.today()
+        if (self.state in ('draft', 'waiting') and
+                self.destination_planned_date
+                and self.destination_planned_date < today):
+            return 'red'
+        return 'black'
 
     def get_day_difference(self, name):
         name = 'planned_date'
