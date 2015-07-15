@@ -90,7 +90,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         selection='get_destination_document_selection'),
         'get_destination_document', searcher='search_destination_document')
     destination_planned_date = fields.Function(fields.Date('Planned Date'),
-        'get_move_field')
+        'get_move_field', searcher='search_move_field')
     destination_from_location = fields.Function(fields.Many2One(
             'stock.location', 'From Location'),
         'get_move_field')
@@ -251,6 +251,14 @@ class Reservation(Workflow, ModelSQL, ModelView):
         if hasattr(res, 'id'):
             return res.id
         return res
+
+    @classmethod
+    def search_move_field(cls, name, clause):
+        move_name, field_name = name.split('_', 1)
+        related_field = '%s.%s' % (move_name, field_name)
+        return [
+            (related_field,) + tuple(clause[1:]),
+            ]
 
     @fields.depends('destination')
     def on_change_with_destination_planned_date(self, name=None):
