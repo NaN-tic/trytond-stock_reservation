@@ -200,9 +200,11 @@ class Reservation(Workflow, ModelSQL, ModelView):
         cls._buttons.update({
                 'draft': {
                     'invisible': ~Eval('state').in_(['waiting']),
+                    'icon': 'tryton-clear',
                     },
                 'wait': {
                     'invisible': ~Eval('state').in_(['draft']),
+                    'icon': 'tryton-go-next',
                     },
                 'fail': {
                     'invisible': ~Eval('state').in_(['waiting']),

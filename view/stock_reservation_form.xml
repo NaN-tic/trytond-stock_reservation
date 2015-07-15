@@ -41,8 +41,8 @@
         <label name="state"/>
         <field name="state"/>
         <group col="5" colspan="2" id="buttons">
-            <button string="Wait" name="wait" icon="tryton-go-next"/>
-            <button string="Reset to Draft" name="draft" icon="tryton-clear"/>
+            <button string="Wait" name="wait"/>
+            <button string="Reset to Draft" name="draft"/>
         </group>
     </group>
     <field name="internal_shipments" invisible="1" />
