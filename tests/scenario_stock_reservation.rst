@@ -284,6 +284,8 @@ Confirm purchase request and check reserve from purchase line::
     >>> request.save()
     >>> create_purchase = Wizard('purchase.request.create_purchase',
     ...     models=[request])
+    >>> create_purchase.form.payment_term = payment_term
+    >>> create_purchase.execute('start')
     >>> purchase_line, = PurchaseLine.find([])
     >>> purchase_line.quantity
     15.0
@@ -358,24 +360,32 @@ Confirm the purchase and test reserve assigned to stock::
     >>> Purchase = Model.get('purchase.purchase')
     >>> purchase = purchase_line.purchase
     >>> purchase.purchase_date = today
-    >>> purchase.payment_term = payment_term
     >>> purchase.save()
-    >>> purchase.click('quote')
-    >>> purchase.click('confirm')
-    >>> purchase.click('process')
+    >>> Purchase.quote([purchase.id], config.context)
+    >>> Purchase.confirm([purchase.id], config.context)
     >>> purchase_move, = purchase.moves
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reserves = StockReservation.find([('state', '=', 'draft')])
-    >>> reservation, = reserves
+    >>> reservation, exceding_reservation = reserves
     >>> reservation.state = 'draft'
     >>> reservation.product == request.product
     True
     >>> reservation.quantity
     10.0
+    >>> reservation.source_document == purchase_line
+    True
     >>> reservation.destination == move
     True
     >>> reservation.destination_document == shipment_out
+    True
+    >>> reservation.reserve_type == 'on_time'
+    True
+    >>> shipment_out.reserve_state == 'on_time'
+    True
+    >>> exceding_reservation.quantity
+    5.0
+    >>> exceding_reservation.reserve_type == 'exceeding'
     True
 
 Recieve the shipment and check reserve assigned to shipment::
