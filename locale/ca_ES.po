@@ -2,6 +2,14 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=utf-8\n"
 
+msgctxt "error:production:"
+msgid ""
+"There are stock reservations related to this production which will be "
+"deleted if spliting the production."
+msgstr ""
+"Hi ha reserves d'estoc relacionades amb aquesta producció que s'eliminaran "
+"si es divideix la producció."
+
 msgctxt "error:stock.move:"
 msgid "The stock moves have related reserves and they will be also deleted."
 msgstr ""
@@ -89,10 +97,6 @@ msgstr "Quantitat reservada en futur"
 msgctxt "field:stock.move,incompatible_reserved_quantity:"
 msgid "Incompatible Reserved Quantity"
 msgstr "Quantitat reservada incompatible"
-
-msgctxt "field:stock.move,reserved:"
-msgid "Reserved"
-msgstr "Reservat"
 
 msgctxt "field:stock.move,reserved_quantity:"
 msgid "Reserved Quantity"
@@ -249,6 +253,10 @@ msgstr "Decimals unitaris"
 msgctxt "field:stock.reservation,uom:"
 msgid "Uom"
 msgstr "UdM"
+
+msgctxt "field:stock.reservation,warning_color:"
+msgid "Warning Color"
+msgstr "Color d'avis"
 
 msgctxt "field:stock.reservation,write_date:"
 msgid "Write Date"
@@ -505,6 +513,14 @@ msgstr "Fracassat"
 msgctxt "selection:stock.reservation,state:"
 msgid "Waiting"
 msgstr "Esperant"
+
+msgctxt "selection:stock.reservation,warning_color:"
+msgid "Ok (Black)"
+msgstr "Correcte (Negre)"
+
+msgctxt "selection:stock.reservation,warning_color:"
+msgid "Reservation in past (Red)"
+msgstr "Reserva en el passat (Roig)"
 
 msgctxt "selection:stock.shipment.out,reserve_state:"
 msgid "Delayed"
