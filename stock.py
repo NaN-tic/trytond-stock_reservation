@@ -1517,49 +1517,51 @@ class Move:
         pool = Pool()
         Reservation = pool.get('stock.reservation')
 
-        actions = iter(args)
-        for moves, values in zip(actions, actions):
-            non_writable_fields = list(set(cls.reserve_non_writable_fields)
-                & set(values.keys()))
-            if not non_writable_fields:
-                continue
+        if not Transaction().context.get('ignore_reserve_warnings', False):
+            actions = iter(args)
+            for moves, values in zip(actions, actions):
+                non_writable_fields = list(set(cls.reserve_non_writable_fields)
+                    & set(values.keys()))
+                if not non_writable_fields:
+                    continue
 
-            invalid_write_moves = []
-            for move in moves:
-                for field in non_writable_fields:
-                    current_value = getattr(move, field)
-                    if isinstance(current_value, Model):
-                        current_value = current_value.id
-                    if current_value != values[field]:
-                        invalid_write_moves.append(move)
-                        break
-            if invalid_write_moves:
-                reserves = Reservation.search([
-                            ['OR',
-                                ('source', 'in', invalid_write_moves),
-                                ('destination', 'in', invalid_write_moves),
-                                ]
-                            ])
-                if reserves:
-                    moves_id = ','.join(str(m) for m in moves)
-                    cls.raise_user_warning('%s.write' % moves_id,
-                        'write_reserved_move')
-                    Reservation.delete(reserves)
+                invalid_write_moves = []
+                for move in moves:
+                    for field in non_writable_fields:
+                        current_value = getattr(move, field)
+                        if isinstance(current_value, Model):
+                            current_value = current_value.id
+                        if current_value != values[field]:
+                            invalid_write_moves.append(move)
+                            break
+                if invalid_write_moves:
+                    reserves = Reservation.search([
+                                ['OR',
+                                    ('source', 'in', invalid_write_moves),
+                                    ('destination', 'in', invalid_write_moves),
+                                    ]
+                                ])
+                    if reserves:
+                        moves_id = ','.join(str(m) for m in moves)
+                        cls.raise_user_warning('%s.write' % moves_id,
+                            'write_reserved_move')
+                        Reservation.delete(reserves)
         super(Move, cls).write(*args)
 
     @classmethod
     def delete(cls, moves):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
-        if Reservation.search([
-                    ['OR',
-                        ('source', 'in', moves),
-                        ('destination', 'in', moves),
-                        ]
-                    ]):
-            moves_id = ','.join(str(m) for m in moves)
-            cls.raise_user_warning('%s.delete' % moves_id,
-                'delete_reserved_move')
+        if not Transaction().context.get('ignore_reserve_warnings', False):
+            if Reservation.search([
+                        ['OR',
+                            ('source', 'in', moves),
+                            ('destination', 'in', moves),
+                            ]
+                        ]):
+                moves_id = ','.join(str(m) for m in moves)
+                cls.raise_user_warning('%s.delete' % moves_id,
+                    'delete_reserved_move')
         super(Move, cls).delete(moves)
 
 
@@ -1670,6 +1672,15 @@ class Production(ReserveRelatedMixin):
         'get_ready_to_assign', searcher='search_ready_to_assign')
 
     @classmethod
+    def __setup__(cls):
+        super(Production, cls).__setup__()
+        cls._error_messages.update({
+                'split_reserved_productions': ('There are stock reservations '
+                    'related to this production which will be deleted if '
+                    'spliting the production.'),
+                })
+
+    @classmethod
     def get_ready_to_assign(cls, productions, name):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
@@ -1751,6 +1762,23 @@ class Production(ReserveRelatedMixin):
     def delete(cls, productions):
         delete_related_reservations(productions, 'source_document')
         super(Production, cls).delete(productions)
+
+    def split(self, quantity, uom, count=None):
+        pool = Pool()
+        Reservation = pool.get('stock.reservation')
+        moves = [x.id for x in self.inputs] + [x.id for x in self.outputs]
+        reserves = Reservation.search([
+                    ['OR',
+                        ('source', 'in', moves),
+                        ('destination', 'in', moves),
+                        ]
+                    ])
+        if reserves:
+            self.raise_user_warning('%s.production_split' % self.id,
+                'split_reserved_productions')
+            with Transaction().set_context(ignore_reserve_warnings=True):
+                Reservation.delete(reserves)
+        return super(Production, self).split(quantity, uom, count=None)
 
 
 class Sale(ReserveRelatedMixin):
