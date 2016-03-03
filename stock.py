@@ -1781,7 +1781,7 @@ class Production(ReserveRelatedMixin):
                 'split_reserved_productions')
             with Transaction().set_context(ignore_reserve_warnings=True):
                 Reservation.delete(reserves)
-        return super(Production, self).split(quantity, uom, count=None)
+        return super(Production, self).split(quantity, uom, count=count)
 
 
 class Sale(ReserveRelatedMixin):
