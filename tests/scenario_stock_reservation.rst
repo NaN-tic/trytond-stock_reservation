@@ -267,25 +267,23 @@ Check reserve from purchase requests::
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reservation, = StockReservation.find([('state', '=', 'draft')])
-    >>> reservation.state = 'draft'
+    >>> reservation.state
+    u'draft'
     >>> reservation.product == request.product
     True
-    >>> reservation.quantity == request.quantity
-    True
+    >>> reservation.quantity
+    15.0
     >>> reservation.source_document == request
     True
-    >>> reservation.reserve_type == 'exceeding'
-    True
+    >>> reservation.reserve_type
+    'exceeding'
 
 Confirm purchase request and check reserve from purchase line::
 
     >>> PurchaseLine = Model.get('purchase.line')
     >>> request.party = supplier
     >>> request.save()
-    >>> create_purchase = Wizard('purchase.request.create_purchase',
-    ...     models=[request])
-    >>> create_purchase.form.payment_term = payment_term
-    >>> create_purchase.execute('start')
+    >>> create_p = Wizard('purchase.request.create_purchase', models=[request])
     >>> purchase_line, = PurchaseLine.find([])
     >>> purchase_line.quantity
     15.0
@@ -294,15 +292,16 @@ Confirm purchase request and check reserve from purchase line::
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reservation, = StockReservation.find([('state', '=', 'draft')])
-    >>> reservation.state = 'draft'
+    >>> reservation.state
+    u'draft'
     >>> reservation.product == request.product
     True
-    >>> reservation.quantity == request.quantity
-    True
+    >>> reservation.quantity
+    15.0
     >>> reservation.source_document == purchase_line
     True
-    >>> reservation.reserve_type == 'exceeding'
-    True
+    >>> reservation.reserve_type
+    'exceeding'
 
 Create an Outgoing Shipment for 10 units and test assigned to purchase line::
 
@@ -328,15 +327,16 @@ Create an Outgoing Shipment for 10 units and test assigned to purchase line::
     >>> move, = shipment_out.inventory_moves
     >>> move.quantity
     10.0
-    >>> move.state == 'draft'
-    True
+    >>> move.state
+    u'draft'
     >>> move.from_location == storage_loc
     True
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reserves = StockReservation.find([('state', '=', 'draft')])
     >>> reservation, exceding_reservation = reserves
-    >>> reservation.state = 'draft'
+    >>> reservation.state
+    u'draft'
     >>> reservation.product == request.product
     True
     >>> reservation.quantity
@@ -347,12 +347,12 @@ Create an Outgoing Shipment for 10 units and test assigned to purchase line::
     True
     >>> reservation.destination_document == shipment_out
     True
-    >>> reservation.reserve_type == 'on_time'
-    True
+    >>> reservation.reserve_type
+    'on_time'
     >>> exceding_reservation.quantity
     5.0
-    >>> exceding_reservation.reserve_type == 'exceeding'
-    True
+    >>> exceding_reservation.reserve_type
+    'exceeding'
 
 
 Confirm the purchase and test reserve assigned to stock::
@@ -360,15 +360,17 @@ Confirm the purchase and test reserve assigned to stock::
     >>> Purchase = Model.get('purchase.purchase')
     >>> purchase = purchase_line.purchase
     >>> purchase.purchase_date = today
-    >>> purchase.save()
-    >>> Purchase.quote([purchase.id], config.context)
-    >>> Purchase.confirm([purchase.id], config.context)
+    >>> purchase.payment_term = payment_term
+    >>> purchase.click('quote')
+    >>> purchase.click('confirm')
+    >>> purchase.click('process')
     >>> purchase_move, = purchase.moves
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reserves = StockReservation.find([('state', '=', 'draft')])
     >>> reservation, exceding_reservation = reserves
-    >>> reservation.state = 'draft'
+    >>> reservation.state
+    u'draft'
     >>> reservation.product == request.product
     True
     >>> reservation.quantity
@@ -379,14 +381,14 @@ Confirm the purchase and test reserve assigned to stock::
     True
     >>> reservation.destination_document == shipment_out
     True
-    >>> reservation.reserve_type == 'on_time'
-    True
-    >>> shipment_out.reserve_state == 'on_time'
-    True
+    >>> reservation.reserve_type
+    'on_time'
+    >>> shipment_out.reserve_state
+    'on_time'
     >>> exceding_reservation.quantity
     5.0
-    >>> exceding_reservation.reserve_type == 'exceeding'
-    True
+    >>> exceding_reservation.reserve_type
+    'exceeding'
 
 Recieve the shipment and check reserve assigned to shipment::
 
@@ -421,13 +423,13 @@ Recieve the shipment and check reserve assigned to shipment::
     True
     >>> reservation.destination_document == shipment_out
     True
-    >>> reservation.reserve_type == 'on_time'
-    True
-    >>> shipment_out.reserve_state == 'on_time'
-    True
+    >>> reservation.reserve_type
+    'on_time'
+    >>> shipment_out.reserve_state
+    'on_time'
     >>> exceding_reservation.source_document == shipment_in
     True
     >>> exceding_reservation.quantity
     5.0
-    >>> exceding_reservation.reserve_type == 'exceeding'
-    True
+    >>> exceding_reservation.reserve_type
+    'exceeding'
