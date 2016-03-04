@@ -1,10 +1,12 @@
 # The COPYRIGHT file at the top level of this repository contains the full
 # copyright notices and license terms.
+from collections import defaultdict
 from datetime import datetime
 from sql import Literal, Cast
 from sql.operators import Concat
 from sql.conditionals import Case
 
+from trytond import backend
 from trytond.model import Workflow, Model, ModelSQL, ModelView, fields
 from trytond.report import Report
 from trytond.pyson import Eval, If, In
@@ -97,6 +99,17 @@ class Reservation(Workflow, ModelSQL, ModelView):
             'stock.location', 'To Location'),
         'get_move_field')
     get_from_stock = fields.Boolean('Get from stock')
+    stock_location = fields.Many2One('stock.location', 'Stock Location',
+        domain=[
+            ('type', '=', 'storage'),
+            ('parent', 'child_of', [Eval('location')]),
+            ],
+        states={
+            'readonly': Eval('state') != 'draft',
+            'invisible': ~Eval('get_from_stock', False),
+            'required': Eval('get_from_stock', False),
+        },
+        depends=DEPENDS + ['get_from_stock', 'location'])
     source = fields.Many2One('stock.move', 'Source Move', select=True,
         states={
             'readonly': (Eval('state') != 'draft') | ~Eval('location'),
@@ -180,6 +193,22 @@ class Reservation(Workflow, ModelSQL, ModelView):
     purchase_requests = fields.Function(fields.One2Many('purchase.request',
             None, 'Purchase Requests'), 'get_related_purchase_requests',
         searcher='search_purchase_requests')
+
+    @classmethod
+    def __register__(cls, module_name):
+        TableHandler = backend.get('TableHandler')
+        cursor = Transaction().cursor
+        table = TableHandler(cursor, cls, module_name)
+        sql_table = cls.__table__()
+
+        created_stock_location = not table.column_exist('stock_location')
+
+        super(Reservation, cls).__register__(module_name)
+
+        # Migration from 3.4: new stock_location field
+        if created_stock_location:
+            cursor.execute(*sql_table.update([sql_table.stock_location],
+                    [sql_table.location], where=sql_table.get_from_stock))
 
     @classmethod
     def __setup__(cls):
@@ -592,7 +621,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
             if reservation.source and reservation.source.state == 'assigned':
                 moves.append(reservation.source)
             if (reservation.destination and
-                reservation.destination.state == 'assigned'):
+                    reservation.destination.state == 'assigned'):
                 moves.append(reservation.destination)
         with Transaction().set_context(stock_reservation=True):
             Move.draft(moves)
@@ -612,7 +641,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
             if reservation.source and reservation.source.state == 'assigned':
                 to_do.append(reservation.source)
             if (reservation.destination and
-                reservation.destination.state == 'draft'):
+                    reservation.destination.state == 'draft'):
                 to_assign.append(reservation.destination)
 
         cls.write(reservations, {'state': 'done'})
@@ -688,8 +717,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     ('state', 'not in', ['done', 'failed']),
                     ]):
             if reservation.get_from_stock:
-                key = (reservation.destination.from_location.id,
-                    reservation.destination.product.id)
+                key = (reservation.stock_location.id, reservation.product.id)
                 pbl[key] -= reservation.internal_quantity
 
             for name in ('source', 'destination'):
@@ -760,8 +788,12 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     continue
 
                 for source in sources:
-                    assert source.product == destination.product, "source/destination product different: %s - %s" % (source, destination)
-                    assert source.to_location == destination.from_location, "source/destination location different: %s - %s" % (source, destination)
+                    assert source.product == destination.product, (
+                        "source/destination product different: %s - %s" % (
+                            source, destination))
+                    assert source.to_location == destination.from_location, (
+                        "source/destination location different: %s - %s" % (
+                            source, destination))
                     quantity = __reservation_from_source(source,
                         destination, quantity)
                     if quantity <= 0.0:
@@ -770,6 +802,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 consumed_quantities[key] = (destination.internal_quantity
                     - quantity)
 
+        child_locations = {}
         for destination in destination_moves:
             quantity = destination.internal_quantity
             reserved_quantity = consumed_quantities.get(('destination',
@@ -779,18 +812,28 @@ class Reservation(Workflow, ModelSQL, ModelView):
             if quantity <= 0.0:
                 continue
 
-            # Create reservation from stock
-            key = (destination.from_location.id, destination.product.id,)
-            stock_quantity = min(pbl.get(key, 0.0),
-                destination.internal_quantity)
-            if stock_quantity > 0.0:
-                reservation_quantity = min(stock_quantity, quantity)
-                reservation = cls.get_reservation(None, destination,
-                    reservation_quantity, destination.product.default_uom)
-                reservation.get_from_stock = True
-                pbl[key] -= reservation_quantity
-                to_create.append(reservation._save_values)
-                quantity -= reservation_quantity
+            # Take in account stock from child locations
+            location_id = destination.from_location.id
+            if location_id not in child_locations:
+                child_locations[location_id] = Location.search([
+                        ('parent', 'child_of', [location_id]),
+                        ])
+            for location in child_locations[location_id]:
+                # Create reservation from stock
+                key = (location.id, destination.product.id,)
+                stock_quantity = min(pbl.get(key, 0.0),
+                    destination.internal_quantity)
+                if stock_quantity > 0.0:
+                    reservation_quantity = min(stock_quantity, quantity)
+                    reservation = cls.get_reservation(None, destination,
+                        reservation_quantity, destination.product.default_uom)
+                    reservation.get_from_stock = True
+                    reservation.stock_location = location
+                    pbl[key] -= reservation_quantity
+                    to_create.append(reservation._save_values)
+                    quantity -= reservation_quantity
+                    if quantity <= 0.0:
+                        break
 
             if quantity <= 0.0:
                 continue
@@ -1472,11 +1515,20 @@ class Move:
                 ('source', 'in', move_ids),
                 ])
         if reservations:
-            Reservation.write(reservations, {
-                    'get_from_stock': True,
-                    'source': None,
-                    'source_document': None,
-                    })
+            reserves_by_location = defaultdict(list)
+            for reservation in reservations:
+                location = reservation.source.to_location.id
+                reserves_by_location[location].append(reservation)
+            to_write = []
+            for location, reservations in reserves_by_location.iteritems():
+                to_write.extend((reservations, {
+                            'get_from_stock': True,
+                            'stock_location': location,
+                            'source': None,
+                            'source_document': None,
+                            }))
+            if to_write:
+                Reservation.write(*to_write)
 
         reservations = Reservation.search([
                 ('state', '=', 'draft'),
