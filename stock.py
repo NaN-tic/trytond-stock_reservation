@@ -857,9 +857,16 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     purchase_line.purchase.warehouse.storage_location
                     if purchase_line.purchase.warehouse
                     else default_warehouse_location)
-                if (purchase_line.product != destination.product
-                        or not purchase_location
-                        or purchase_location != destination.from_location):
+                if not purchase_location:
+                    continue
+                if purchase_location not in child_locations:
+                    child_locations[purchase_location] = Location.search([
+                            ('parent', 'child_of', [purchase_location]),
+                            ])
+                if purchase_line.product != destination.product:
+                    continue
+                if (destination.from_location not in
+                        child_locations[purchase_location]):
                     continue
                 key = ('purchase_line', purchase_line.id,)
                 consumed_quantity = consumed_quantities.get(key, 0.0)
@@ -897,9 +904,16 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     purchase_request.warehouse.storage_location
                     if purchase_request.warehouse
                     else default_warehouse_location)
-                if (purchase_request.product != destination.product
-                        or not purchase_location
-                        or purchase_location != destination.from_location):
+                if not purchase_location:
+                    continue
+                if purchase_location not in child_locations:
+                    child_locations[purchase_location] = Location.search([
+                            ('parent', 'child_of', [purchase_location]),
+                            ])
+                if purchase_request.product != destination.product:
+                    continue
+                if (destination.from_location not in
+                        child_locations[purchase_location]):
                     continue
                 key = ('purchase_request', purchase_request.id,)
                 consumed_quantity = consumed_quantities.get(key, 0.0)
