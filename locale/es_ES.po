@@ -238,6 +238,10 @@ msgctxt "field:stock.reservation,state:"
 msgid "State"
 msgstr "Estado"
 
+msgctxt "field:stock.reservation,stock_location:"
+msgid "Stock Location"
+msgstr "Ubicación de stock"
+
 msgctxt "field:stock.reservation,supplier_return_shipments:"
 msgid "Supplier Return Shipments"
 msgstr "Devoluciones de proveedor"
