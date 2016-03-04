@@ -1028,10 +1028,10 @@ class Reservation(Workflow, ModelSQL, ModelView):
         """
         pool = Pool()
         PurchaseLine = pool.get('purchase.line')
-        # Must process confirmed purchases first because we want them to be
+        # Must process processing purchases first because we want them to be
         # assigned before the ones in quotation or draft state
         confirmed_domain = [
-            ('purchase.state', '=', ['confirmed']),
+            ('purchase.state', '=', ['processing']),
             ('product.type', '=', 'goods'),
             ('product.consumable', '=', False),
             ]
@@ -1048,7 +1048,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
                 lines.append(line)
 
         draft_quotation_domain = [
-            ('purchase.state', 'in', ['draft', 'quotation']),
+            ('purchase.state', 'in', ['draft', 'quotation', 'confirmed']),
             ('product.type', '=', 'goods'),
             ('product.consumable', '=', False),
             ]
