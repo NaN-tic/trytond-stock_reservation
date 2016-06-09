@@ -5,6 +5,7 @@ from datetime import datetime
 from sql import Literal, Cast
 from sql.operators import Concat
 from sql.conditionals import Case
+from sql.functions import Substring, Position
 
 from trytond import backend
 from trytond.model import Workflow, Model, ModelSQL, ModelView, fields
@@ -580,8 +581,40 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
     @classmethod
     def search_purchase_requests(cls, name, clause):
-        return [tuple(('source_document.id',)) + tuple(clause[1:]) +
-            tuple(('purchase.request',))]
+        pool = Pool()
+        PurchaseRequest = pool.get('purchase.request')
+        PurchaseLine = pool.get('purchase.line')
+
+        reservation = cls.__table__()
+        purchase_request = PurchaseRequest.__table__()
+        purchase_line = PurchaseLine.__table__()
+
+        _, operator, value = clause
+        Operator = fields.SQL_OPERATORS[operator]
+        query = (purchase_line
+            .join(reservation,
+                condition=(
+                    (reservation.source_document.ilike('purchase.line,%'))
+                    &
+                    (Cast(Substring(reservation.source_document,
+                                Position(',', reservation.source_document)
+                                + Literal(1)),
+                            PurchaseLine.id.sql_type().base)
+                        == purchase_line.id)
+                    )
+                )
+            .join(purchase_request,
+                condition=(purchase_request.purchase_line == purchase_line.id))
+            .select(
+                reservation.id,
+                where=(Operator(purchase_request.id, value))
+                )
+            )
+        return [['OR',
+                ('id', 'in', query),
+                tuple(('source_document.id',)) + tuple(clause[1:]) +
+                tuple(('purchase.request',))
+                ]]
 
     @classmethod
     def delete(cls, reservations):
