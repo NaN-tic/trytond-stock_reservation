@@ -2216,28 +2216,77 @@ class PurchaseRequest:
     sales = fields.Function(fields.One2Many('sale.sale', None, 'Sales'),
         'get_sales', searcher='search_sales')
 
+    def get_recursive_reservations(self):
+        pool = Pool()
+        Move = pool.get('stock.move')
+        Reservation = pool.get('stock.reservation')
+
+        def get_recursive_moves(moves, processed_moves=None):
+            if not moves:
+                return []
+            if processed_moves is None:
+                processed_moves = set()
+
+            pending_moves = [m for m in moves if m.id not in processed_moves]
+            reservations = Reservation.search([
+                    ['OR',
+                        ('source', 'in', pending_moves),
+                        ('destination', 'in', pending_moves),
+                        ],
+                    ])
+
+            new_moves = set([r.destination for r in reservations
+                    if r.destination and isinstance(r.destination, Move)])
+            for move in moves:
+                if move.id in processed_moves:
+                    continue
+                if move.production_input:
+                    new_moves |= set(move.production_input.outputs)
+                processed_moves.add(move.id)
+
+            reservations += get_recursive_moves(list(new_moves),
+                processed_moves)
+            return reservations
+
+        moves = []
+        reservations = Reservation.search([
+                ['OR',
+                    ('source_document', '=', str(self)),
+                    ('source_document', '=', str(self.purchase_line)),
+                    ],
+                ])
+        for reservation in reservations:
+            if reservation.productions:
+                for production in reservation.productions:
+                    for input in production.inputs:
+                        if input.product == self.product:
+                            moves.append(input)
+            elif reservation.destination:
+                moves.append(reservation.destination)
+        res = get_recursive_moves(moves)
+        return res
+
     def get_sales(self, name):
         pool = Pool()
-        Reservation = pool.get('stock.reservation')
         SaleLine = pool.get('sale.line')
+        StockMove = pool.get('stock.move')
         ShipmentOut = pool.get('stock.shipment.out')
         sales = set()
-        reservations = Reservation.search([
-                ('source_document', '=', str(self)),
-                ])
-
+        reservations = list(set(self.get_recursive_reservations()))
         for reservation in reservations:
             if reservation.destination:
                 if reservation.destination.origin:
                     origin = reservation.destination.origin
                     if isinstance(origin, SaleLine):
                         sales.add(origin.sale)
+                    elif isinstance(origin, StockMove):
+                        sales.add(origin.origin.sale)
                 elif reservation.destination_document:
                     dest_move = reservation.destination
                     shipment = reservation.destination_document
                     if isinstance(shipment, ShipmentOut):
                         for move in shipment.outgoing_moves:
-                            if not move.product == dest_move.product:
+                            if move.product != dest_move.product:
                                 continue
                             if move.origin and isinstance(move.origin,
                                     SaleLine):
