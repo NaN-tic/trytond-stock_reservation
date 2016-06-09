@@ -2011,12 +2011,20 @@ class Sale(ReserveRelatedMixin):
         pool = Pool()
         Request = pool.get('purchase.request')
         SaleLine = pool.get('sale.line')
+        PurchaseLine = pool.get('purchase.line')
 
         requests = set()
         for reservation in self.get_recursive_reservations():
-            if reservation.source_document and isinstance(
-                    reservation.source_document, Request):
-                requests.add(reservation.source_document)
+            source_document = reservation.source_document
+            if source_document:
+                if isinstance(source_document, Request):
+                    requests.add(source_document)
+                elif isinstance(source_document, PurchaseLine):
+                    request = Request.search([
+                        ('purchase_line', '=', source_document)
+                        ])
+                    if request:
+                        requests.add(request[0])
         # support sale_supply(_drop_shipment)
         if hasattr(SaleLine, 'purchase_request'):
             for line in self.lines:
