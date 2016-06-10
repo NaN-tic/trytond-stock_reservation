@@ -2183,6 +2183,7 @@ class Purchase:
         Reservation = pool.get('stock.reservation')
         SaleLine = pool.get('sale.line')
         ShipmentOut = pool.get('stock.shipment.out')
+        StockMove = pool.get('stock.move')
         sales = set()
         reservations = []
 
@@ -2228,12 +2229,14 @@ class Purchase:
                     origin = reservation.destination.origin
                     if isinstance(origin, SaleLine):
                         sales.add(origin.sale)
+                    elif isinstance(origin, StockMove):
+                        sales.add(origin.origin.sale)
                 elif reservation.destination_document:
                     dest_move = reservation.destination
                     shipment = reservation.destination_document
                     if isinstance(shipment, ShipmentOut):
                         for move in shipment.outgoing_moves:
-                            if not move.product == dest_move.product:
+                            if move.product != dest_move.product:
                                 continue
                             if move.origin and isinstance(move.origin,
                                     SaleLine):
