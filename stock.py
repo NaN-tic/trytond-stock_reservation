@@ -480,15 +480,18 @@ class Reservation(Workflow, ModelSQL, ModelView):
                     ])
             if purchase_lines:
                 res.extend(list(set(l.purchase for l in purchase_lines)))
-        if self.origin and isinstance(self.origin, PurchaseLine):
+        if hasattr(self, 'origin') and isinstance(self.origin, PurchaseLine):
             res.append(self.origin.purchase.id)
+        if (hasattr(self, 'source_document') and
+                isinstance(self.source_document, PurchaseLine)):
+            res.append(self.source_document.purchase.id)
         return res
 
     def get_related_purchase_requests(self, name):
         pool = Pool()
         Request = pool.get('purchase.request')
         res = []
-        if self.origin and isinstance(self.origin, Request):
+        if hasattr(self, 'origin') and isinstance(self.origin, Request):
             res.append(self.origin.purchase.id)
         return res
 
