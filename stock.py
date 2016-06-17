@@ -1041,6 +1041,8 @@ class Reservation(Workflow, ModelSQL, ModelView):
         """
         pool = Pool()
         PurchaseLine = pool.get('purchase.line')
+        Purchase = pool.get('purchase.purchase')
+
         # Must process processing purchases first because we want them to be
         # assigned before the ones in quotation or draft state
         confirmed_domain = [
@@ -2125,3 +2127,5 @@ class ShipmentInternal:
     def delete(cls, shipments):
         delete_related_reservations(shipments, 'source_document')
         super(ShipmentInternal, cls).delete(shipments)
+
+
