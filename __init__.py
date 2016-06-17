@@ -3,7 +3,7 @@
 
 from trytond.pool import Pool
 from .stock import *
-
+from .purchase import *
 
 def register():
     Pool.register(
