@@ -2098,7 +2098,10 @@ class ShipmentIn:
     def create_inventory_moves(cls, shipments):
         pool = Pool()
         Reservation = pool.get('stock.reservation')
+        PurchaseLine = pool.get('purchase.line')
+
         super(ShipmentIn, cls).create_inventory_moves(shipments)
+
         for shipment in shipments:
             for inventory_move in shipment.inventory_moves:
                 for incoming_move in shipment.incoming_moves:
