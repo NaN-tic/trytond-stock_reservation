@@ -5,68 +5,49 @@ from decimal import Decimal
 import unittest
 import doctest
 import trytond.tests.test_tryton
-from trytond.tests.test_tryton import POOL, DB_NAME, USER, CONTEXT
-from trytond.tests.test_tryton import test_view, test_depends
+from trytond.pool import Pool
+from trytond.tests.test_tryton import ModuleTestCase, with_transaction
 from trytond.tests.test_tryton import doctest_setup, doctest_teardown
 from trytond.exceptions import UserWarning
-from trytond.transaction import Transaction
+
+from trytond.modules.company.tests import create_company, set_company
 
 
-class TestCase(unittest.TestCase):
+class TestCase(ModuleTestCase):
     'Test module'
+    module = 'stock_reservation'
 
-    def setUp(self):
-        trytond.tests.test_tryton.install_module('stock_reservation')
-        self.company = POOL.get('company.company')
-        self.template = POOL.get('product.template')
-        self.product = POOL.get('product.product')
-        self.category = POOL.get('product.category')
-        self.uom = POOL.get('product.uom')
-        self.location = POOL.get('stock.location')
-        self.move = POOL.get('stock.move')
-        self.reservation = POOL.get('stock.reservation')
-        self.user = POOL.get('res.user')
-
-    def test0005views(self):
-        'Test views'
-        test_view('stock_reservation')
-
-    def test0006depends(self):
-        'Test depends'
-        test_depends()
-
+    @with_transaction()
     def test0010_reserved_warning(self):
         'Test a warning is raised when modifing a reserved move'
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            category, = self.category.create([{
-                        'name': 'Test Move.internal_quantity',
-                        }])
-            kg, = self.uom.search([('name', '=', 'Kilogram')])
-            template, = self.template.create([{
-                        'name': 'Test Move.internal_quantity',
-                        'type': 'goods',
-                        'list_price': Decimal(1),
-                        'cost_price': Decimal(0),
-                        'category': category.id,
-                        'cost_price_method': 'fixed',
-                        'default_uom': kg.id,
-                        }])
-            product, = self.product.create([{
-                        'template': template.id,
-                        }])
-            supplier, = self.location.search([('code', '=', 'SUP')])
-            storage, = self.location.search([('code', '=', 'STO')])
-            output, = self.location.search([('code', '=', 'OUT')])
-            customer, = self.location.search([('code', '=', 'CUS')])
-            company, = self.company.search([
-                    ('rec_name', '=', 'Dunder Mifflin'),
-                    ])
-            currency = company.currency
-            self.user.write([self.user(USER)], {
-                'main_company': company.id,
-                'company': company.id,
-                })
-            source, destination = self.move.create([{
+        pool = Pool()
+        Template = pool.get('product.template')
+        Product = pool.get('product.product')
+        Uom = pool.get('product.uom')
+        Location = pool.get('stock.location')
+        Move = pool.get('stock.move')
+        Reservation = pool.get('stock.reservation')
+
+        kg, = Uom.search([('name', '=', 'Kilogram')])
+        template, = Template.create([{
+                    'name': 'Test Move.internal_quantity',
+                    'type': 'goods',
+                    'list_price': Decimal(1),
+                    'cost_price': Decimal(0),
+                    'cost_price_method': 'fixed',
+                    'default_uom': kg.id,
+                    }])
+        product, = Product.create([{
+                    'template': template.id,
+                    }])
+        supplier, = Location.search([('code', '=', 'SUP')])
+        storage, = Location.search([('code', '=', 'STO')])
+        output, = Location.search([('code', '=', 'OUT')])
+        customer, = Location.search([('code', '=', 'CUS')])
+        company = create_company()
+        currency = company.currency
+        with set_company(company):
+            source, destination = Move.create([{
                         'product': product.id,
                         'uom': kg.id,
                         'quantity': 1.0,
@@ -85,7 +66,7 @@ class TestCase(unittest.TestCase):
                         'unit_price': Decimal('1'),
                         'currency': currency.id,
                         }])
-            reservation, = self.reservation.create([{
+            reservation, = Reservation.create([{
                         'product': product.id,
                         'uom': kg.id,
                         'quantity': 1.0,
@@ -95,10 +76,10 @@ class TestCase(unittest.TestCase):
                         'destination': destination.id,
                         }])
             for move in [source, destination]:
-                self.assertRaises(UserWarning, self.move.delete, [move])
+                self.assertRaises(UserWarning, Move.delete, [move])
 
-            #Check that we can write to_unit_price
-            self.move.write([source, destination], {
+            # Check that we can write to_unit_price
+            Move.write([source, destination], {
                     'unit_price': Decimal('2.0'),
                     })
             for field, value in [
@@ -107,7 +88,7 @@ class TestCase(unittest.TestCase):
                     ('to_location', customer.id),
                     ]:
                 for move in [source, destination]:
-                    self.assertRaises(UserWarning, self.move.write, [move], {
+                    self.assertRaises(UserWarning, Move.write, [move], {
                             field: value,
                             })
 
