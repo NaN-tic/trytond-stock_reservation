@@ -295,12 +295,9 @@ class Reservation(Workflow, ModelSQL, ModelView):
 
     @fields.depends('product')
     def on_change_product(self):
-        res = {}
         if self.product:
-            res['uom'] = self.product.default_uom.id
-            res['uom.rec_name'] = self.product.default_uom.rec_name
-            res['unit_digits'] = self.product.default_uom.digits
-        return res
+            self.uom = self.product.default_uom
+            self.unit_digits = self.product.default_uom.digits
 
     def get_rec_name(self, name):
         return "%d %s %s @ %s" % (self.quantity, self.uom.symbol,
