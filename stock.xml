@@ -50,35 +50,45 @@
             id="act_stock_reservation_type_pending_domain">
             <field name="name">To be Assigned</field>
             <field name="sequence" eval="10"/>
-            <field name="domain">[('reserve_type', '=', 'pending')]</field>
+            <field name="domain"
+                eval="[('reserve_type', '=', 'pending')]"
+                pyson="1"/>
             <field name="act_window" ref="act_stock_reservation_type"/>
         </record>
         <record model="ir.action.act_window.domain"
             id="act_stock_reservation_type_in_stock_domain">
             <field name="name">In Stock</field>
             <field name="sequence" eval="20"/>
-            <field name="domain">[('reserve_type', '=', 'in_stock')]</field>
+            <field name="domain"
+                eval="[('reserve_type', '=', 'in_stock')]"
+                pyson="1"/>
             <field name="act_window" ref="act_stock_reservation_type"/>
         </record>
         <record model="ir.action.act_window.domain"
             id="act_stock_reservation_type_on_time_domain">
             <field name="name">Assigned On Time</field>
             <field name="sequence" eval="30"/>
-            <field name="domain">[('reserve_type', '=', 'on_time')]</field>
+            <field name="domain"
+                eval="[('reserve_type', '=', 'on_time')]"
+                pyson="1"/>
             <field name="act_window" ref="act_stock_reservation_type"/>
         </record>
         <record model="ir.action.act_window.domain"
             id="act_stock_reservation_type_delayed_domain">
             <field name="name">Assigned Delayed</field>
             <field name="sequence" eval="40"/>
-            <field name="domain">[('reserve_type', '=', 'delayed')]</field>
+            <field name="domain"
+                eval="[('reserve_type', '=', 'delayed')]"
+                pyson="1"/>
             <field name="act_window" ref="act_stock_reservation_type"/>
         </record>
         <record model="ir.action.act_window.domain"
             id="act_stock_reservation_type_exceeding_domain">
             <field name="name">Exceeding</field>
             <field name="sequence" eval="40"/>
-            <field name="domain">[('reserve_type', '=', 'exceeding')]</field>
+            <field name="domain"
+                eval="[('reserve_type', '=', 'exceeding')]"
+                pyson="1"/>
             <field name="act_window" ref="act_stock_reservation_type"/>
         </record>
         <record model="ir.action.act_window.domain"
@@ -95,7 +105,9 @@
           </record>
 
           <record model="ir.rule" id="rule_stock_reservation1">
-            <field name="domain">[('company', '=', user.company.id if user.company else None)]</field>
+            <field name="domain"
+                eval="[('company', '=', Eval('user', {}).get('company', None))]"
+                pyson="1"/>
             <field name="rule_group" ref="rule_group_stock_reservation"/>
           </record>
 
@@ -130,7 +142,9 @@
         <record model="ir.action.act_window" id="act_reservation_form_shipment_out">
             <field name="name">Reservations</field>
             <field name="res_model">stock.reservation</field>
-            <field name="domain">[('destination_document', '=', ('stock.shipment.out', Eval('active_id')))]</field>
+            <field name="domain"
+                eval="[('destination_document', '=', ('stock.shipment.out', Eval('active_id')))]"
+                pyson="1"/>
         </record>
         <record model="ir.action.keyword" id="act_open_reservation_keyword1">
             <field name="keyword">form_relate</field>
@@ -142,14 +156,18 @@
                 id="act_shipment_out_form_domain_ready_to_assign">
             <field name="name">Ready to assign</field>
             <field name="sequence" eval="25"/>
-            <field name="domain">[('state', '=', 'waiting'),('ready_to_assign', '=', True)]</field>
+            <field name="domain"
+                eval="[('state', '=', 'waiting'),('ready_to_assign', '=', True)]"
+                pyson="1"/>
             <field name="act_window" ref="stock.act_shipment_out_form"/>
         </record>
 
         <record model="ir.action.act_window" id="act_reservation_form_production">
             <field name="name">Reservations</field>
             <field name="res_model">stock.reservation</field>
-            <field name="domain">[('destination_document', '=', ('production', Eval('active_id')))]</field>
+            <field name="domain"
+                eval="[('destination_document', '=', ('production', Eval('active_id')))]"
+                pyson="1"/>
         </record>
         <record model="ir.action.keyword" id="act_open_reservation_keyword2">
             <field name="keyword">form_relate</field>
@@ -161,7 +179,9 @@
                 id="act_production_list_domain_ready_to_assign">
             <field name="name">Ready to assign</field>
             <field name="sequence" eval="25"/>
-            <field name="domain">[('state', 'in', ['request', 'draft', 'waiting']),('ready_to_assign', '=', True)]</field>
+            <field name="domain"
+                eval="[('state', 'in', ['request', 'draft', 'waiting']),('ready_to_assign', '=', True)]"
+                pyson="1"/>
             <field name="act_window" ref="production.act_production_list"/>
         </record>
 
@@ -169,7 +189,9 @@
         <record model="ir.action.act_window" id="act_reservation_form_sale">
             <field name="name">Reservations</field>
             <field name="res_model">stock.reservation</field>
-            <field name="domain">[('sales', '=', Eval('active_id'))]</field>
+            <field name="domain"
+                eval="[('sales', '=', Eval('active_id'))]"
+                pyson="1"/>
         </record>
         <record model="ir.action.keyword" id="act_open_reservation_keyword3">
             <field name="keyword">form_relate</field>
@@ -180,7 +202,9 @@
         <record model="ir.action.act_window" id="act_reservation_form_purchase">
             <field name="name">Reservations</field>
             <field name="res_model">stock.reservation</field>
-            <field name="domain">[('purchases', '=', Eval('active_id'))]</field>
+            <field name="domain"
+                eval="[('purchases', '=', Eval('active_id'))]"
+                pyson="1"/>
         </record>
 
         <record model="ir.action.keyword" id="act_open_reservation_keyword4">
@@ -192,7 +216,9 @@
         <record model="ir.action.act_window" id="act_reservation_form_requests">
             <field name="name">Reservations</field>
             <field name="res_model">stock.reservation</field>
-            <field name="domain">[('purchase_requests', '=', Eval('active_id'))]</field>
+            <field name="domain"
+                eval="[('purchase_requests', '=', Eval('active_id'))]"
+                pyson="1"/>
         </record>
 
         <record model="ir.action.keyword" id="act_open_reservation_keyword5">
@@ -204,7 +230,9 @@
         <record model="ir.action.act_window" id="act_purchase_from_sales">
             <field name="name">Purchases</field>
             <field name="res_model">purchase.purchase</field>
-            <field name="domain">[('sales', '=', Eval('active_id'))]</field>
+            <field name="domain"
+                eval="[('sales', '=', Eval('active_id'))]"
+                pyson="1"/>
         </record>
 
         <record model="ir.action.keyword" id="act_purchase_from_sales_keyword1">
@@ -216,7 +244,9 @@
         <record model="ir.action.act_window" id="act_sale_from_purchases">
             <field name="name">Sales</field>
             <field name="res_model">sale.sale</field>
-            <field name="domain">[('purchases', '=', Eval('active_id'))]</field>
+            <field name="domain"
+                eval="[('purchases', '=', Eval('active_id'))]"
+                pyson="1"/>
         </record>
 
         <record model="ir.action.keyword" id="act_sale_from_purchases_keyword1">
@@ -228,7 +258,9 @@
         <record model="ir.action.act_window" id="act_requests_from_sales">
             <field name="name">Purchase Requests</field>
             <field name="res_model">purchase.request</field>
-            <field name="domain">[('sales', '=', Eval('active_id'))]</field>
+            <field name="domain"
+                eval="[('sales', '=', Eval('active_id'))]"
+                pyson="1"/>
         </record>
 
         <record model="ir.action.keyword" id="act_requests_from_sales_keyword1">
@@ -240,7 +272,9 @@
         <record model="ir.action.act_window" id="act_sale_from_requests">
             <field name="name">Sales</field>
             <field name="res_model">sale.sale</field>
-            <field name="domain">[('purchase_requests', '=', Eval('active_id'))]</field>
+            <field name="domain"
+                eval="[('purchase_requests', '=', Eval('active_id'))]"
+                pyson="1"/>
         </record>
 
         <record model="ir.action.keyword" id="act_sale_from_requests_keyword1">
