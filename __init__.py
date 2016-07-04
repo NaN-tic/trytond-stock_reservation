@@ -3,6 +3,7 @@
 
 from trytond.pool import Pool
 from .stock import *
+from .purchase import *
 
 def register():
     Pool.register(
@@ -11,13 +12,15 @@ def register():
         WaitReservationStart,
         PrintReservationGraphStart,
         Move,
-        #PurchaseLine,
+        PurchaseLine,
         Production,
         Sale,
         ShipmentOut,
         ShipmentOutReturn,
         ShipmentIn,
         ShipmentInternal,
+        Purchase,
+        PurchaseRequest,
         module='stock_reservation', type_='model')
     Pool.register(
         CreateReservations,
