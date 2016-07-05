@@ -345,3 +345,37 @@ Recieve the shipment and check reserve assigned to shipment::
     >>> ShipmentIn.receive([shipment_in.id], config.context)
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
+    >>> create_reservations = Wizard('stock.create_reservations')
+    >>> create_reservations.execute('create_')
+    >>> reserves = StockReservation.find([('state', '=', 'draft')])
+    >>> stock_reservation, _, reservation, exceding_reservation = reserves
+    >>> stock_reservation.reserve_type == 'in_stock'
+    True
+    >>> stock_reservation.location == input_loc
+    True
+    >>> reservation.product == request.product
+    True
+    >>> reservation.quantity
+    10.0
+    >>> reservation.source_document == shipment_in
+    True
+    >>> shipment_in.reload()
+    >>> shipment_in_move, = shipment_in.inventory_moves
+    >>> reservation.source == shipment_in_move
+    True
+    >>> shipment_out_move, = shipment_out.inventory_moves
+    >>> reservation.destination == shipment_out_move
+    True
+    >>> reservation.destination_document == shipment_out
+    True
+    >>> reservation.reserve_type == 'on_time'
+    True
+    >>> shipment_out.reserve_state == 'on_time'
+    True
+    >>> exceding_reservation.source_document == shipment_in
+    True
+    >>> exceding_reservation.quantity
+    5.0
+    >>> exceding_reservation.reserve_type == 'exceeding'
+    True
+
