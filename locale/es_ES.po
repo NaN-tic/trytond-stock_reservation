@@ -1,4 +1,4 @@
-# 
+#
 msgid ""
 msgstr "Content-Type: text/plain; charset=utf-8\n"
 
@@ -84,7 +84,7 @@ msgstr "Reservas"
 
 msgctxt "field:stock.create_reservations.start,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "field:stock.create_reservations.start,wait:"
 msgid "Mark new reservations as waiting"
@@ -116,11 +116,11 @@ msgstr "Empresa"
 
 msgctxt "field:stock.reservation,create_date:"
 msgid "Create Date"
-msgstr "Fecha de creación"
+msgstr "Fecha creación"
 
 msgctxt "field:stock.reservation,create_uid:"
 msgid "Create User"
-msgstr "Usuario de creación"
+msgstr "Usuario creación"
 
 msgctxt "field:stock.reservation,customer_return_shipments:"
 msgid "Customer Return Shipments"
@@ -168,7 +168,7 @@ msgstr "Obtener de stock"
 
 msgctxt "field:stock.reservation,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "field:stock.reservation,internal_quantity:"
 msgid "Internal Quantity"
@@ -272,7 +272,7 @@ msgstr "Usuario modificación"
 
 msgctxt "field:stock.reservation.print_graph.start,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "field:stock.reservation.print_graph.start,level:"
 msgid "Level"
@@ -296,7 +296,7 @@ msgstr "Reservas"
 
 msgctxt "field:stock.wait_reservation.start,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "help:stock.create_reservations.start,wait:"
 msgid "If marked the new reservations will be created in waiting state."

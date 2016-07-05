@@ -1,4 +1,4 @@
-# 
+#
 msgid ""
 msgstr "Content-Type: text/plain; charset=utf-8\n"
 
@@ -84,7 +84,7 @@ msgstr "Reserves"
 
 msgctxt "field:stock.create_reservations.start,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "field:stock.create_reservations.start,wait:"
 msgid "Mark new reservations as waiting"
@@ -116,11 +116,11 @@ msgstr "Empresa"
 
 msgctxt "field:stock.reservation,create_date:"
 msgid "Create Date"
-msgstr "Data de creació"
+msgstr "Data creació"
 
 msgctxt "field:stock.reservation,create_uid:"
 msgid "Create User"
-msgstr "Usuari de creació"
+msgstr "Usuari creació"
 
 msgctxt "field:stock.reservation,customer_return_shipments:"
 msgid "Customer Return Shipments"
@@ -168,7 +168,7 @@ msgstr "Obtenir d'estoc"
 
 msgctxt "field:stock.reservation,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "field:stock.reservation,internal_quantity:"
 msgid "Internal Quantity"
@@ -272,7 +272,7 @@ msgstr "Usuari modificació"
 
 msgctxt "field:stock.reservation.print_graph.start,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "field:stock.reservation.print_graph.start,level:"
 msgid "Level"
@@ -296,7 +296,7 @@ msgstr "Reserves"
 
 msgctxt "field:stock.wait_reservation.start,id:"
 msgid "ID"
-msgstr "Identificador"
+msgstr "ID"
 
 msgctxt "help:stock.create_reservations.start,wait:"
 msgid "If marked the new reservations will be created in waiting state."
@@ -344,7 +344,7 @@ msgstr "Vendes"
 
 msgctxt "model:ir.action,name:act_stock_reservation_create"
 msgid "Create Stock Reservations"
-msgstr "Crear Reserves d'estoc"
+msgstr "Crea reserves d'estoc"
 
 msgctxt "model:ir.action,name:act_stock_reservation_type"
 msgid "Stock Reservation"
@@ -412,7 +412,7 @@ msgstr "Reserva d'estoc"
 
 msgctxt "model:ir.ui.menu,name:menu_stock_reservation_create"
 msgid "Create Stock Reservations"
-msgstr "Crear Reserves d'estoc"
+msgstr "Crea reserves d'estoc"
 
 msgctxt "model:res.group,name:group_stock_reservation"
 msgid "Stock Reservation"
@@ -424,7 +424,7 @@ msgstr "Cron Reserves d'Estoc"
 
 msgctxt "model:stock.create_reservations.start,name:"
 msgid "Create Reservations"
-msgstr "Crear Reserves"
+msgstr "Crear reserves"
 
 msgctxt "model:stock.reservation,name:"
 msgid "Stock Reservation"
@@ -472,7 +472,7 @@ msgstr "Pendent"
 
 msgctxt "selection:stock.reservation,failed_reason:"
 msgid ""
-msgstr "A temps"
+msgstr ""
 
 msgctxt "selection:stock.reservation,failed_reason:"
 msgid "Destination Move was canceled"
@@ -552,11 +552,11 @@ msgstr "Compres"
 
 msgctxt "view:stock.create_reservations.start:"
 msgid "Create Stock Reservations"
-msgstr "Crear Reserves d'estoc"
+msgstr "Crea reserves d'estoc"
 
 msgctxt "view:stock.create_reservations.start:"
 msgid "Create Stock Reservations?"
-msgstr "Crear Reserves d'estoc?"
+msgstr "Crear reserves d'estoc?"
 
 msgctxt "view:stock.reservation.print_graph.start:"
 msgid "Print Reserve Graph"
@@ -592,7 +592,7 @@ msgstr "Voleu posar les reserves d'estoc en espera?"
 
 msgctxt "wizard_button:stock.create_reservations,start,create_:"
 msgid "Create"
-msgstr "Crear"
+msgstr "Crea"
 
 msgctxt "wizard_button:stock.create_reservations,start,end:"
 msgid "Cancel"
