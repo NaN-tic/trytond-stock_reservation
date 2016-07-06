@@ -345,8 +345,6 @@ Recieve the shipment and check reserve assigned to shipment::
     >>> ShipmentIn.receive([shipment_in.id], config.context)
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
-    >>> create_reservations = Wizard('stock.create_reservations')
-    >>> create_reservations.execute('create_')
     >>> reserves = StockReservation.find([('state', '=', 'draft')])
     >>> stock_reservation, _, reservation, exceding_reservation = reserves
     >>> stock_reservation.reserve_type == 'in_stock'
