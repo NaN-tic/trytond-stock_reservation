@@ -13,8 +13,8 @@ from trytond.exceptions import UserWarning
 from trytond.modules.company.tests import create_company, set_company
 
 
-class TestCase(ModuleTestCase):
-    'Test module'
+class StockReservationTestCase(ModuleTestCase):
+    'Test Stock Reservation module'
     module = 'stock_reservation'
 
     @with_transaction()
@@ -95,11 +95,8 @@ class TestCase(ModuleTestCase):
 
 def suite():
     suite = trytond.tests.test_tryton.suite()
-    from trytond.modules.company.tests import test_company
-    for test in test_company.suite():
-        if test not in suite:
-            suite.addTest(test)
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestCase))
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(
+            StockReservationTestCase))
     suite.addTests(doctest.DocFileSuite('scenario_stock_reservation.rst',
             setUp=doctest_setup, tearDown=doctest_teardown, encoding='utf-8',
             optionflags=doctest.REPORT_ONLY_FIRST_FAILURE))
