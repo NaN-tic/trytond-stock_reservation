@@ -266,6 +266,24 @@ Recieve the shipment and check reserve assigned to shipment::
     ...     shipment_in.incoming_moves.append(incoming_move)
     >>> shipment_in.save()
     >>> ShipmentIn.receive([shipment_in.id], config.context)
+    >>> reserves = StockReservation.find([('state', '=', 'draft')])
+    >>> re1, re2 = reserves
+    >>> re1.reserve_type == 'on_time'
+    True
+    >>> re1.location == storage_loc
+    True
+    >>> re1.product == request.product
+    True
+    >>> re1.quantity
+    10.0
+    >>> re2.reserve_type == 'exceeding'
+    True
+    >>> re2.location == storage_loc
+    True
+    >>> re2.product == request.product
+    True
+    >>> re2.quantity
+    5.0
     >>> create_reservations = Wizard('stock.create_reservations')
     >>> create_reservations.execute('create_')
     >>> reserves = StockReservation.find([('state', '=', 'draft')])
