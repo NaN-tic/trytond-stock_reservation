@@ -70,7 +70,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
     source_document = fields.Reference('Source',
         selection='get_source_document', states=STATES, depends=DEPENDS)
     location = fields.Many2One('stock.location', 'Location', select=True,
-        required=True, domain=[('type', 'in', ['storage', 'production'])],
+        required=True, domain=[('type', 'in', ['view', 'storage', 'production'])],
         states=STATES, depends=DEPENDS)
     destination = fields.Many2One('stock.move', 'Destination Move',
         select=True,
