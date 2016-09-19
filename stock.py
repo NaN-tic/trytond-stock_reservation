@@ -693,7 +693,14 @@ class Reservation(Workflow, ModelSQL, ModelView):
             if reservation.get_from_stock:
                 key = (reservation.destination.from_location.id,
                     reservation.destination.product.id)
-                pbl[key] -= reservation.internal_quantity
+                try:
+                    pbl[key] -= reservation.internal_quantity
+                except KeyError:
+                    # if key is not in pbl is because there isn't any
+                    # destination move for this product (but the product has a
+                    # waiting reservation), so it doesn't matters to don't
+                    # update the pbl
+                    pass
 
             for name in ('source', 'destination'):
                 move = getattr(reservation, name, None)
