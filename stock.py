@@ -1037,6 +1037,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Request = pool.get('purchase.request')
         domain = [
             ('purchase_line', '=', None),
+            ('product.type', '=', 'goods'),
             ]
         if hasattr(Request, 'customer'):
             domain.append(('customer', '=', None))
