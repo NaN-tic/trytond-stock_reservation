@@ -1034,6 +1034,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Request = pool.get('purchase.request')
         domain = [
             ('purchase_line', '=', None),
+            ('product.type', '=', 'goods'),
             ]
         if hasattr(Request, 'customer'):
             domain.append(('customer', '=', None))
@@ -1616,8 +1617,9 @@ class Move:
                                     ]
                                 ])
                     if reserves:
-                        moves_id = ','.join(str(m) for m in moves)
-                        cls.raise_user_warning('%s.write' % moves_id,
+                        warning_ids = [m._get_reserved_moves_warning_id()
+                            for m in moves]
+                        cls.raise_user_warning('%s.write' % set(warning_ids),
                             'write_reserved_move')
                         Reservation.delete(reserves)
         super(Move, cls).write(*args)
@@ -1633,10 +1635,26 @@ class Move:
                             ('destination', 'in', moves),
                             ]
                         ]):
-                moves_id = ','.join(str(m) for m in moves)
-                cls.raise_user_warning('%s.delete' % moves_id,
+                warning_ids = [m._get_reserved_moves_warning_id()
+                    for m in moves]
+                cls.raise_user_warning('%s.delete' % set(warning_ids),
                     'delete_reserved_move')
         super(Move, cls).delete(moves)
+
+    def _get_reserved_moves_warning_id(self):
+        pool = Pool()
+        InventoryLine = pool.get('stock.inventory.line')
+        if self.production_input:
+            return "prod-%s" % self.production_input.id
+        if self.production_output:
+            return "prod-%s" % self.production_output.id
+        if self.shipment:
+            str_id = str(self.shipment)
+            return "%s-%s" % (
+                str_id.split(',')[0].split('.')[-1], self.shipment.id)
+        if isinstance(self.origin, InventoryLine):
+            return "inv-%s" % self.origin.inventory.id
+        return str(self.id)
 
 
 # class PurchaseLine:
@@ -2137,5 +2155,3 @@ class ShipmentInternal:
     def delete(cls, shipments):
         delete_related_reservations(shipments, 'source_document')
         super(ShipmentInternal, cls).delete(shipments)
-
-
