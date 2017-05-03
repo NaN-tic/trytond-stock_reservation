@@ -279,9 +279,11 @@ class Reservation(Workflow, ModelSQL, ModelView):
         PurchaseRequest = pool.get('purchase.request')
         PurchaseLine = pool.get('purchase.line')
         if self.source_document:
-            if isinstance(self.source_document, PurchaseLine):
+            if (isinstance(self.source_document, PurchaseLine) and
+                    hasattr(self.source_document, 'delivery_date')):
                 return self.source_document.delivery_date
-            elif isinstance(self.source_document, PurchaseRequest):
+            elif (isinstance(self.source_document, PurchaseRequest) and
+                    hasattr(self.source_document, 'supply_date')):
                 return self.source_document.supply_date
         return self.get_move_field('source_planned_date')
 
