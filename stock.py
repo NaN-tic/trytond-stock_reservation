@@ -1822,6 +1822,8 @@ class Production(ReserveRelatedMixin):
 
         reserves = Reservation.search([
                 ('reserve_type', '=', 'in_stock'),
+                ('state', 'in', ('draft', 'waiting', 'done')),
+                ('destination.production_input', '!=', None)
                 ])
 
         productions_inputs = {}
@@ -1831,7 +1833,7 @@ class Production(ReserveRelatedMixin):
                 reserve.destination.production_input)
             if not production:
                 continue
-            if not production in productions_inputs:
+            if production not in productions_inputs:
                 product_quantities = {}
                 for input in production.inputs:
                     qty = product_quantities.setdefault(input.product, 0.0)
