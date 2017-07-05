@@ -552,8 +552,11 @@ class Reservation(Workflow, ModelSQL, ModelView):
         Move = pool.get('stock.move')
         moves = Move.search([('sale',) + tuple(clause[1:])])
         shipments = list(set([m.shipment for m in moves if m.shipment]))
-        return [('destination_document', 'in', shipments)]
-
+        if shipments:
+            return [('destination_document', 'in', shipments)]
+        else:
+            return []
+            
     @classmethod
     def search_day_difference(cls, name, clause):
         pool = Pool()
