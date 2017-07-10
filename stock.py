@@ -556,7 +556,7 @@ class Reservation(Workflow, ModelSQL, ModelView):
             return [('destination_document', 'in', shipments)]
         else:
             return []
-            
+
     @classmethod
     def search_day_difference(cls, name, clause):
         pool = Pool()
@@ -1463,6 +1463,7 @@ class Move:
 
     def get_incompatible_reserved_quantity(self, name):
         quantity = 0.0
+        Reservation = Pool().get('stock.reservation')
         reservations = Reservation.search([
                 ('location', '=', self.from_location.id),
                 ('product', '=', self.product.id),
