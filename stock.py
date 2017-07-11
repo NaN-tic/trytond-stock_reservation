@@ -1826,8 +1826,8 @@ class Production(ReserveRelatedMixin):
 
         reserves = Reservation.search([
                 ('reserve_type', '=', 'in_stock'),
-                ('state', 'in', ('draft', 'waiting', 'done')),
-                ('destination.production_input', '!=', None)
+                ('state', 'in', ('draft', 'waiting')),
+                ('destination.production_input', '!=', None),
                 ])
 
         productions_inputs = {}
