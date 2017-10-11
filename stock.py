@@ -1960,7 +1960,7 @@ class Sale(ReserveRelatedMixin):
             return reservations
 
         moves = []
-        for shipment in self.shipments + self.shipment_returns:
+        for shipment in list(self.shipments) + list(self.shipment_returns):
             moves += shipment.inventory_moves
         res = get_recursive_moves(moves)
         return res
